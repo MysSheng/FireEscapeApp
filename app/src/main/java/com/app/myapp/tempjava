@@ -3,6 +3,7 @@ package com.app.myapp;
 import android.Manifest;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.graphics.Camera;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -35,6 +36,7 @@ import android.util.SparseIntArray;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
+import android.view.OrientationEventListener;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -47,11 +49,64 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import android.graphics.Color;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.GridLayout;
 
-public class MainActivity extends AppCompatActivity {
+import android.graphics.Matrix;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.os.Bundle;
+import android.widget.ImageView;
+
+
+//import androidx.appcompat.app.AppCompatActivity;
+
+public class MainActivity extends AppCompatActivity implements SensorEventListener {
+    //處理手機旋轉角度
+    /*
+    private String TAG = "MainActivity";
+    private OrientationEventListener mOrientationListener;
+    private final void startOrientationChangeListener(){
+        mOrientationListener = new OrientationEventListener(this) {
+            @Override
+            public void onOrientationChanged(int rotation) {
+                Log.e(TAG, " "+ rotation);
+            }
+        };
+        mOrientationListener.enable();
+    }*/
+
+
+
+    //陀螺儀旋轉
+    private static final String TAG = "MainActivity";
+    private static final long CALIBRATION_TIME_MS = 60_000; // 1 minute in milliseconds
+
+    private SensorManager sensorManager;
+    private Sensor gyroscope;
+
+    private float[] gyroValues = new float[3];
+    private float[] gyroBias = new float[3];
+    private float[] gyroBiasTemp = new float[3];
+    private float[] gyroRotation = new float[3];
+
+    private long lastUpdateTime = 0;
+
+    private boolean isCalibrating = false;
+    private int calibrationCount = 0;
+    private long calibrationStartTime = 0;
+
+
+
+
+
+
 
     private final int REQUEST_PERMISSION_CAMERA = 100;
-
     private boolean mbFaceDetAvailable;
     private int miMaxFaceCount = 0;
     private int miFaceDetMode;
@@ -93,16 +148,49 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //陀螺儀測試
+        // 初始化SensorManager
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        // 初始化陀螺儀感測器
+        gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+
+        //旋轉測試
+        //startOrientationChangeListener();
+
         mTextureView = findViewById(R.id.textureView);
         mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
 
-        Button btnTakePicture = findViewById(R.id.btnTakePicture);
+
+        GridLayout gridLayout = findViewById(R.id.gridLayout);
+        int rowCount = 100;
+        int columnCount = 100;
+        // 設定 GridLayout 的行列數
+        gridLayout.setRowCount(rowCount);
+        gridLayout.setColumnCount(columnCount);
+        for (int i = 0; i < rowCount; i++) {
+            for (int j = 0; j < columnCount; j++) {
+                View cell = new View(this);
+                GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+                params.width = 0; // 讓格子均分
+                params.height = 0;
+                params.rowSpec = GridLayout.spec(i, 1f);
+                params.columnSpec = GridLayout.spec(j, 1f);
+                cell.setLayoutParams(params);
+                cell.setBackgroundResource(R.drawable.grid_cell); // 設定背景為白底黑框
+                // 點擊後變色
+                //cell.setOnClickListener(v -> cell.setBackgroundColor(Color.RED));
+                gridLayout.addView(cell);
+            }
+        }
+
+        /*
+        //Button btnTakePicture = findViewById(R.id.btnTakePicture);
         btnTakePicture.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 takePicture();
             }
-        });
+        });*/
     }
 
     @Override
@@ -115,6 +203,14 @@ public class MainActivity extends AppCompatActivity {
             if (askForPermissions())
                 openCamera();
         }
+
+        sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        sensorManager.unregisterListener(this);
     }
 
     @Override
@@ -125,6 +221,107 @@ public class MainActivity extends AppCompatActivity {
             mCameraDevice.close();
             mCameraDevice = null;
         }
+    }
+
+
+    // 記錄初始朝向（第一次讀取到方位角時設置）
+    private boolean isInitialOrientationSet = false;
+    private float initialAzimuth = 0;
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+
+        ImageView imageView = findViewById(R.id.compassArrow);
+        long currentTime = System.currentTimeMillis();
+        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+            if (isCalibrating) {
+                // 初始化開始時間
+                if (calibrationStartTime == 0) {
+                    calibrationStartTime = currentTime;
+                }
+
+                // 計算剩餘時間
+                long timeRemaining = CALIBRATION_TIME_MS - (currentTime - calibrationStartTime);
+
+                if (timeRemaining > 0) {  // 還在校準中
+                    // 累加校準數值
+                    gyroBiasTemp[0] += event.values[0];
+                    gyroBiasTemp[1] += event.values[1];
+                    gyroBiasTemp[2] += event.values[2];
+
+                    // 累加校準次數
+                    calibrationCount++;
+
+                    // 更新 UI
+                    //updateCalibrateButton(timeRemaining);
+                } else {  // 校準完成
+                    // 計算平均值
+                    gyroBiasTemp[0] /= calibrationCount;
+                    gyroBiasTemp[1] /= calibrationCount;
+                    gyroBiasTemp[2] /= calibrationCount;
+
+                    // 複製到 gyroBias
+                    System.arraycopy(gyroBiasTemp, 0, gyroBias, 0, gyroBiasTemp.length);
+
+                    // 更新 UI
+                    //binding.gyroBiasX.setText(String.format(Locale.getDefault(), "%.2f", gyroBias[0]));
+                    //binding.gyroBiasY.setText(String.format(Locale.getDefault(), "%.2f", gyroBias[1]));
+                    //binding.gyroBiasZ.setText(String.format(Locale.getDefault(), "%.2f", gyroBias[2]));
+                    //updateCalibrateButton();
+
+                    // 重置校準狀態
+                    isCalibrating = false;
+                    calibrationCount = 0;
+                    calibrationStartTime = 0;
+                    gyroBiasTemp[0] = 0;
+                    gyroBiasTemp[1] = 0;
+                    gyroBiasTemp[2] = 0;
+                }
+            } else {
+                // 初始化上次更新時間
+                if (lastUpdateTime == 0) {
+                    lastUpdateTime = currentTime;
+                    return;
+                }
+
+                // 計算時間差
+                double dt = (currentTime - lastUpdateTime) / 1000.0;
+                lastUpdateTime = currentTime;
+
+                // 計算弧度變化
+                double dx = (event.values[0] - gyroBias[0] + gyroValues[0]) * dt / 2.0;
+                double dy = (event.values[1] - gyroBias[1] + gyroValues[1]) * dt / 2.0;
+                double dz = (event.values[2] - gyroBias[2] + gyroValues[2]) * dt / 2.0;
+
+                // 計算角度變化
+                double dx_deg = Math.toDegrees(dx);
+                double dy_deg = Math.toDegrees(dy);
+                double dz_deg = Math.toDegrees(dz);
+
+                // 儲存當前的陀螺儀數值
+                gyroValues[0] = event.values[0] - gyroBias[0];
+                gyroValues[1] = event.values[1] - gyroBias[1];
+                gyroValues[2] = event.values[2] - gyroBias[2];
+
+                // 累加角度
+                gyroRotation[0] += dx_deg;
+                gyroRotation[1] += dy_deg;
+                gyroRotation[2] += dz_deg;
+
+                imageView.setRotation((float) gyroRotation[2]);
+
+                // 更新 UI
+                //binding.gyroX.setText(String.format(Locale.getDefault(), "%.2f", gyroValues[0]));
+                //binding.gyroY.setText(String.format(Locale.getDefault(), "%.2f", gyroValues[1]));
+                //binding.gyroZ.setText(String.format(Locale.getDefault(), "%.2f", gyroValues[2]));
+
+                //updateProgressBar((int) gyroRotation[2]);
+            }
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
     }
 
     private boolean askForPermissions() {
