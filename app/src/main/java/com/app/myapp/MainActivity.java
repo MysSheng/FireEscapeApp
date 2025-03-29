@@ -3,6 +3,8 @@ package com.app.myapp;
 import android.Manifest;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Camera;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
@@ -44,6 +46,7 @@ import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -171,6 +174,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private GridLayout gridLayout ;
 
 
+
+
+    private Matrix matrix = new Matrix();
+
+    private float scaleFactor = 1.0f;
+    private float translateX = 0f;
+    private float translateY = 0f;
+    private int imgWidth, imgHeight; // 儲存圖片的原始大小
+
+
+
+
+
+
+
     //自動偵測位置
     private Handler handler = new Handler();
     private Runnable detectionTask = new Runnable() {
@@ -280,6 +298,53 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //關於GridMap的可視化
         Grid[][] escapeMap =fp.returnMap();
         //Grid[][] escapeMap = fp.getGridMap();
+
+        ImageView imageView = findViewById(R.id.imageView);
+        GridMapView gridMapView = findViewById(R.id.gridMapView);
+
+        // 設定 GridMap 預設大小等於圖片的大小
+        imageView.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            if (imageView.getDrawable() != null) {
+                imgWidth = imageView.getDrawable().getIntrinsicWidth();
+                imgHeight = imageView.getDrawable().getIntrinsicHeight();
+                int viewWidth = imageView.getWidth();
+                int viewHeight = imageView.getHeight();
+
+                // 計算初始縮放比例，讓圖片完整顯示
+                float scaleX = (float) viewWidth / imgWidth;
+                float scaleY = (float) viewHeight / imgHeight;
+                float initScale = Math.min(scaleX, scaleY);
+
+                // 設定初始縮放
+                scaleFactor = initScale;
+                applyTransformation(imageView,gridMapView);
+
+                // 設定 GridMap 大小與圖片匹配
+                gridMapView.setGridSize(imgWidth, imgHeight);
+
+                // 調整 GridMapView 的大小
+                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(imgWidth, imgHeight);
+                gridMapView.setLayoutParams(params);
+            }
+        });
+
+        Bitmap userBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.user_sign);
+        Bitmap roadBitmap = BitmapFactory.decodeResource(getResources(),R.drawable.u_d_removebg);
+        gridMapView.setCellImage(13, 39, userBitmap);
+        for(int i=0;i<=38;i++){
+            gridMapView.setCellImage(13, i, roadBitmap);
+        }
+        gridMapView.setCellScale(13, 39, 3.5f);
+        //gridMapView.setCellRotation(13, 39, 45.0f);
+
+        for(int i=0;i<100;i++){
+            for(int j=0;j<100;j++){
+                gridMapView.setGridVisibility(false);
+            }
+        }
+
+        /*
+
         gridLayout = findViewById(R.id.gridLayout);
         gridLayout.setRowCount(rowCount);
         gridLayout.setColumnCount(columnCount);
@@ -332,9 +397,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 gridLayout.addView(cell);
                 cellMap[i][j] = cell; // 存入二維陣列
             }
+
         }
 
         setUserLoc(user_x,user_y);
+
+
+
+         */
 
         /*
         //Button btnTakePicture = findViewById(R.id.btnTakePicture);
@@ -344,6 +414,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 takePicture();
             }
         });*/
+    }
+
+    private void applyTransformation(ImageView imageView,GridMapView gridMapView) {
+        matrix.reset();
+        matrix.postScale(scaleFactor, scaleFactor);
+        matrix.postTranslate(translateX, translateY);
+
+        imageView.setImageMatrix(matrix);
+        gridMapView.setTransformMatrix(matrix);
     }
 
     private ImageView deepCopyImageView(ImageView original) {
@@ -439,6 +518,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
+    /*
     @Override
     protected void onResume() {
         super.onResume();
@@ -460,7 +540,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //getInitialOrientation(); // 獲取初始方向
 
     }
-
+*/
     @Override
     protected void onPause() {
         super.onPause();
