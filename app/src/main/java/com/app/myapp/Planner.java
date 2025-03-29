@@ -16,6 +16,8 @@ public class Planner {
     private double runSpeed =0;
     private ArrayList<Edge> edges = new ArrayList<>();
 
+    private HashMap<Grid,Grid[][]> global_nav = new HashMap<>();
+
     public Planner(Grid[][] GridMap,int user_loc_x, int user_loc_y,
                    int fire_loc_x,int fire_loc_y) {
         this.GridMap = GridMap;
@@ -42,6 +44,68 @@ public class Planner {
         count_local_path();
         init_high_level_map();
         concise_high_level_map();
+    }
+
+    public void do_one_level(){
+        count_fire_time();
+        count_global_path();
+    }
+
+    public void count_global_path(){
+        Queue<Grid> exits = new LinkedList<Grid>();
+        //collect exits
+        exits.offer(GridMap[0][10]);
+        exits.offer(GridMap[23][10]);
+        //starting compute
+        HashMap<Grid,Grid[][]> navigator = new HashMap<>();
+        while (!exits.isEmpty()) {
+            Grid exit = exits.poll();
+            //set Target Node.deadline as Target Node.fireTime
+            GridMap[exit.getX()][exit.getY()].setDeadLine(exit.getFireTime());
+            //Create empty queue
+            Queue<Grid> relax_list = new LinkedList<Grid>();
+            //push Target Node into queue relax_list
+            relax_list.add(GridMap[exit.getX()][exit.getY()]);
+            //while relax_list is not empty
+            while (!relax_list.isEmpty()) {
+                //pop out the first element 'front' from 'relax_list'
+                Grid front = relax_list.remove();
+                //for each grid in front's neighbor grids (from (x-1,y-1) to (x+1,y+1)
+                Queue<Grid> neighbors = new LinkedList<Grid>();
+                int x=front.getX(), y=front.getY();
+                for(int i=x-1;i<=x+1;i++){
+                    for(int j=y-1;j<=y+1;j++){
+                        //check if the index is overflow
+                        if(i >=0 && i < ROWS && j >= 0 && j < COLS){
+                            int type=GridMap[i][j].getType();
+                            if(type==Grid.ROAD||type==Grid.EXIT) {
+                                neighbors.add(GridMap[i][j]);
+                            }
+                        }
+                    }
+                }
+                relax(front,relax_list,neighbors,GridMap, 0, 0);
+            }
+            //use an independent array to store the value of localMap now
+            //deep copy
+            Grid temp=new Grid(GridMap[exit.getX()][exit.getY()]);
+            Grid[][] copy= new Grid[ROWS][COLS];
+            System.out.println("("+exit.getX()+","+exit.getY()+")");
+            //test code
+            for(int i=0;i<ROWS;i++){
+                for(int j=0;j<COLS;j++) {
+                    //localMap[i][j].setDeadLine(localMap[i][j].getFireTime());
+                    copy[i][j] = new Grid(GridMap[i][j]);
+                    double num = GridMap[i][j].getDeadLine();
+                    String formattedNum = String.format("%.2f", num);
+                    System.out.print(formattedNum+" ");
+                }
+                System.out.println();
+            }
+            System.out.println();
+            navigator.put(temp, copy);
+        }
+        global_nav = navigator;
     }
 
     /* step0:
@@ -458,6 +522,11 @@ public class Planner {
 
             }
         }
+        pickPath(GridMap,user_loc_x,user_loc_y);
+        return GridMap;
+    }
+
+    public Grid[][] getGridMap(){
         pickPath(GridMap,user_loc_x,user_loc_y);
         return GridMap;
     }

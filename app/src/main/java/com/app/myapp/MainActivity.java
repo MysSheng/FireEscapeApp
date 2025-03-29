@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Camera;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -26,6 +27,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.NonNull;
+import android.support.constraint.ConstraintLayout;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
@@ -38,6 +40,9 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.OrientationEventListener;
+import android.view.ViewGroup;
+import android.view.animation.Animation;
+import android.view.animation.RotateAnimation;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -89,6 +94,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private static final long CALIBRATION_TIME_MS = 60_000; // 1 minute in milliseconds
 
     private SensorManager sensorManager;
+    private Sensor accelerometerSensor,magnetometerSensor;
     private Sensor gyroscope;
 
     private float[] gyroValues = new float[3];
@@ -96,16 +102,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float[] gyroBiasTemp = new float[3];
     private float[] gyroRotation = new float[3];
 
+    private float[] lastAccelerometer = new float[3];
+    private float[] lastMagnetometer = new float[3];
+    private float[] rotationMatrix = new float[9];
+    private float[] orientation = new float[3];
+
+    boolean isLastAccelerometerArrayCopied = false;
+    boolean isLastMagnetometerArrayCopied = false;
+    float currentDegree = 0f;
     private long lastUpdateTime = 0;
 
     private boolean isCalibrating = false;
     private int calibrationCount = 0;
     private long calibrationStartTime = 0;
-
-
-
-
-
 
 
     private final int REQUEST_PERMISSION_CAMERA = 100;
@@ -147,10 +156,44 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private final int rowCount = 100;
     private final int columnCount = 100;
-    private TextView[][] cellMap = new TextView[rowCount][columnCount]; // 儲存 TextView 參照
+    private ImageView[][] cellMap = new ImageView[rowCount][columnCount]; // 儲存 TextView 參照
 
-    private final int user_x = 9;
-    private final int user_y = 45;
+    private int user_x = 9;
+    private int user_y = 45;
+
+    private float gridWidth;
+    private float gridHeight;
+
+    private float gridSize = 0; // 儲存 Grid 的大小
+
+    private ImageView userMarker; // 新增的使用者箭頭圖示
+    //private GridLayout gridLayout = findViewById(R.id.gridLayout);
+    private GridLayout gridLayout ;
+
+
+    //自動偵測位置
+    private Handler handler = new Handler();
+    private Runnable detectionTask = new Runnable() {
+        @Override
+        public void run() {
+            detectSomething();  // 執行偵測
+            handler.postDelayed(this, 2000); // 每 2 秒執行一次
+        }
+    };
+
+    private void startDetection() {
+        handler.postDelayed(detectionTask, 2000); // 延遲 2 秒開始
+    }
+
+    private void stopDetection() {
+        handler.removeCallbacks(detectionTask); // 停止偵測
+    }
+
+    private void detectSomething() {
+        Log.d("Detection", "正在偵測...");
+        // 這裡放你的偵測邏輯
+    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -162,6 +205,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         // 初始化陀螺儀感測器
         gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        // 初始化地磁加速度
+        accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        magnetometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         //旋轉測試
         //startOrientationChangeListener();
         mTextureView = findViewById(R.id.textureView);
@@ -224,20 +270,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         fp.addRoom(new Room(6, 24, 39, 27, 27));
         fp.addRoom(new Room(7, 48, 30, 24, 36));
         fp.setRunSpeed(2);
+        //fp.do_one_level();
         fp.do_task();
         fp.testNavigator();
-        // fp.testEdge();
+        ////////// fp.testEdge();
         fp.testOutgoingEdge();
-        // fp.user_guide(user_x, user_y);
+        ////////// fp.user_guide(user_x, user_y);
 
         //關於GridMap的可視化
         Grid[][] escapeMap =fp.returnMap();
-        GridLayout gridLayout = findViewById(R.id.gridLayout);
+        //Grid[][] escapeMap = fp.getGridMap();
+        gridLayout = findViewById(R.id.gridLayout);
         gridLayout.setRowCount(rowCount);
         gridLayout.setColumnCount(columnCount);
         for (int i = 0; i < rowCount; i++) {
             for (int j = 0; j < columnCount; j++) {
-                TextView cell = new TextView(this);
+                ImageView cell = new ImageView(this);
                 GridLayout.LayoutParams params = new GridLayout.LayoutParams();
                 params.width = 0;
                 params.height = 0;
@@ -245,20 +293,48 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 params.columnSpec = GridLayout.spec(j, 1f);
                 cell.setLayoutParams(params);
                 cell.setBackgroundResource(R.drawable.grid_cell); // 設定背景為白底黑框
-                cell.setText(getDirectionText(escapeMap[i][j].getDirection()));
                 GradientDrawable drawable = (GradientDrawable) cell.getBackground();
                 drawable.setColor(changeColor(escapeMap[i][j].getType()));
                 drawable.setStroke(0, Color.TRANSPARENT); // 移除邊線
-                //test
-                // if(escapeMap[i][j].getDirection()==-1) drawable.setColor(Color.YELLOW);
-                //if(escapeMap[i][j].getDirection()==0) drawable.setColor(Color.GREEN);
-                //if(escapeMap[i][j].getDirection()==1) drawable.setColor(Color.GRAY);
-                if(escapeMap[i][j].getDirection()!=-1) drawable.setColor(Color.GRAY);
-                if(escapeMap[i][j].isSelected()) drawable.setColor(Color.YELLOW);
+
+                //用於變換完成的還原
+                //ImageView temp = new ImageView(this);
+                //temp.setLayoutParams(params);
+                //temp.setBackground(cell.getBackground()); // 複製背景
+
+                // 建立深度拷貝
+                ImageView temp = deepCopyImageView(cell);
+
+                if(escapeMap[i][j].isSelected()&&(escapeMap[i][j].getX()!=user_x||escapeMap[i][j].getY()!=user_y))
+                    drawable.setColor(Color.YELLOW);
+                //點擊變換
+                int finalI = i;
+                int finalJ = j;
+                cell.setOnClickListener(v -> {
+                    //還原
+                    //cellMap[user_x][user_y].setBackgroundColor(Color.TRANSPARENT);
+                    //params.width/=30;
+                    //params.height/=30;
+                    //cellMap[user_x][user_y].setLayoutParams(params);
+                    //cellMap[user_x][user_y].setLayoutParams(params);
+                    //cellMap[user_x][user_y].setImageResource(-1);
+                    cellMap[9][45]=temp;
+                    //更新
+                    cell.setImageResource(R.drawable.user_sign);
+                    cell.setBackgroundColor(Color.WHITE);
+                    GridLayout.LayoutParams paramsPlus = (GridLayout.LayoutParams) cellMap[user_x][user_y].getLayoutParams();
+                    paramsPlus.width = 30;  // 讓這格變大
+                    paramsPlus.height = 30;
+                    cell.setLayoutParams(paramsPlus);
+                    user_x=finalI;
+                    user_y=finalJ;
+                });
                 gridLayout.addView(cell);
                 cellMap[i][j] = cell; // 存入二維陣列
             }
         }
+
+        setUserLoc(user_x,user_y);
 
         /*
         //Button btnTakePicture = findViewById(R.id.btnTakePicture);
@@ -268,6 +344,67 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 takePicture();
             }
         });*/
+    }
+
+    private ImageView deepCopyImageView(ImageView original) {
+        ImageView copy = new ImageView(original.getContext());
+
+        // 複製 LayoutParams
+        GridLayout.LayoutParams originalParams = (GridLayout.LayoutParams) original.getLayoutParams();
+        GridLayout.LayoutParams copyParams = new GridLayout.LayoutParams(originalParams);
+        copy.setLayoutParams(copyParams);
+
+        // 複製背景
+        Drawable originalBackground = original.getBackground();
+        if (originalBackground != null) {
+            copy.setBackground(originalBackground.getConstantState().newDrawable().mutate());
+            copy.setBackground(null);
+        }
+
+        // 複製圖片 (如果有設定)
+        Drawable originalDrawable = original.getDrawable();
+        if (originalDrawable != null) {
+            copy.setImageDrawable(originalDrawable.getConstantState().newDrawable().mutate());
+            copy.setImageDrawable(null);
+        }
+
+        // 複製其他屬性
+        copy.setPadding(original.getPaddingLeft(), original.getPaddingTop(),
+                original.getPaddingRight(), original.getPaddingBottom());
+        copy.setScaleType(original.getScaleType());
+        copy.setContentDescription(original.getContentDescription());
+
+        return copy;
+    }
+
+    private void setUserLoc(int x,int y){
+        //cellMap[user_x][user_y].setBackgroundColor(Color.WHITE);
+        //更改新格子
+        cellMap[x][y].setImageResource(R.drawable.user_sign);
+        cellMap[x][y].setBackgroundColor(Color.WHITE);
+        GridLayout.LayoutParams params = (GridLayout.LayoutParams) cellMap[user_x][user_y].getLayoutParams();
+        params.width = (int) 30;  // 讓這格變大
+        params.height = (int) 30;
+        cellMap[x][y].setLayoutParams(params);
+        user_x=x;
+        user_y=y;
+    }
+
+    // 計算 Grid 大小後更新使用者箭頭
+    private void updateUserMarkerSize() {
+        if (gridSize > 0) {
+            ViewGroup.LayoutParams params = new ViewGroup.LayoutParams((int) gridSize, (int) gridSize);
+            userMarker.setLayoutParams(params);
+            userMarker.setVisibility(View.VISIBLE);
+        }
+    }
+
+    // 移動使用者位置
+    public void moveUser(int x, int y) {
+        if (gridSize == 0) return; // 確保 Grid 大小已經計算好
+
+        userMarker.setX(gridLayout.getX() + (y * gridSize));
+        userMarker.setY(gridLayout.getY() + (x * gridSize));
     }
 
     private int changeColor(int type){
@@ -314,7 +451,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
 
         sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_NORMAL);
-        getInitialOrientation(); // 獲取初始方向
+
+        //測地磁角
+       sensorManager.registerListener(this,accelerometerSensor,SensorManager.SENSOR_DELAY_NORMAL);
+       sensorManager.registerListener(this,magnetometerSensor,SensorManager.SENSOR_DELAY_NORMAL);
+
+
+        //getInitialOrientation(); // 獲取初始方向
 
     }
 
@@ -335,57 +478,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     // 獲取初始朝向
-    private void getInitialOrientation() {
-        final SensorManager sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        Sensor accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        Sensor magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-
-        SensorEventListener tempListener = new SensorEventListener() {
-            @Override
-            public void onSensorChanged(SensorEvent event) {
-                ImageView imageView = findViewById(R.id.compassArrow);
-                if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-                    System.arraycopy(event.values, 0, gravity, 0, event.values.length);
-                } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-                    System.arraycopy(event.values, 0, geomagnetic, 0, event.values.length);
-                }
-
-                if (gravity != null && geomagnetic != null) {
-                    float[] R = new float[9];
-                    float[] I = new float[9];
-                    boolean success = SensorManager.getRotationMatrix(R, I, gravity, geomagnetic);
-
-                    if (success) {
-                        float[] orientation = new float[3];
-                        SensorManager.getOrientation(R, orientation);
-
-                        // 取得 Azimuth（手機相對北方的角度）
-                        float azimuthRad = orientation[0];
-                        initialAzimuth = (float) Math.toDegrees(azimuthRad); // 轉換成度
-                        if (initialAzimuth < 0) {
-                            initialAzimuth += 360; // 確保範圍是 0 ~ 360
-                        }
-
-                        isInitialOrientationSet = true;
-
-                        // 設定 ImageView 直接對準北方
-                        //ImageView imageView = findViewById(R.id.compassArrow);
-                        imageView.setRotation(initialAzimuth);
-
-                        // **註銷監聽器，因為我們只需要一次數據**
-                        sensorManager.unregisterListener(this);
-                    }
-                }
-            }
-
-            @Override
-            public void onAccuracyChanged(Sensor sensor, int accuracy) { }
-        };
-
-        // 註冊一次性監聽器，立即獲取傳感器數據
-        sensorManager.registerListener(tempListener, accelerometer, SensorManager.SENSOR_DELAY_UI);
-        sensorManager.registerListener(tempListener, magnetometer, SensorManager.SENSOR_DELAY_UI);
-    }
 
 
     // 記錄初始朝向（第一次讀取到方位角時設置）
@@ -399,7 +491,94 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     public void onSensorChanged(SensorEvent event) {
 
-        ImageView imageView = findViewById(R.id.compassArrow);
+
+        ImageView compassArrow = findViewById(R.id.compassArrow);
+
+        if(event.sensor == accelerometerSensor){
+            System.arraycopy(event.values,0,lastAccelerometer,0,event.values.length);
+            isLastAccelerometerArrayCopied = true;
+        }else if(event.sensor == magnetometerSensor){
+            System.arraycopy(event.values,0,lastMagnetometer,0,event.values.length);
+            isLastMagnetometerArrayCopied = true;
+        }
+
+        if(isLastMagnetometerArrayCopied && isLastAccelerometerArrayCopied && System.currentTimeMillis() - lastUpdateTime>250){
+            SensorManager.getRotationMatrix(rotationMatrix,null,lastAccelerometer,lastMagnetometer);
+            SensorManager.getOrientation(rotationMatrix,orientation);
+
+            float azimuthInRadians = orientation[0];
+            float azimuthInDegree = (float) Math.toDegrees(azimuthInRadians);
+
+
+            // 平面圖的基準角度（上方對應的北方偏移角）
+            float baseOffsetAngle = 68.0f;
+
+            // 計算調整後的角度，使其符合平面圖的方向
+            float adjustedAzimuth = azimuthInDegree + baseOffsetAngle;
+
+            // 確保角度保持在 0 - 360 之間
+            if (adjustedAzimuth >= 360) {
+                adjustedAzimuth -= 360;
+            } else if (adjustedAzimuth < 0) {
+                adjustedAzimuth += 360;
+            }
+
+            RotateAnimation rotateAnimation =
+                    new RotateAnimation(currentDegree,-azimuthInDegree,Animation.RELATIVE_TO_SELF,0.5f,Animation.RELATIVE_TO_SELF,0.5f);
+            rotateAnimation.setDuration(250);
+            rotateAnimation.setFillAfter(true);
+
+            RotateAnimation oppositeRotateAnimation =
+                    new RotateAnimation(-currentDegree, azimuthInDegree,Animation.RELATIVE_TO_SELF, 0.5f,Animation.RELATIVE_TO_SELF, 0.5f);
+            oppositeRotateAnimation.setDuration(250);
+            oppositeRotateAnimation.setFillAfter(true);
+
+            compassArrow.startAnimation(rotateAnimation);
+            cellMap[user_x][user_y].startAnimation(oppositeRotateAnimation);
+
+            currentDegree = -azimuthInDegree;
+            lastUpdateTime = System.currentTimeMillis();
+        }
+        /*
+        //地磁偵測
+        final float alpha = 0.97f;
+        synchronized (this){
+            if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
+                mGravity[0] = alpha * mGravity[0] + (1-alpha)*event.values[0];
+                mGravity[1] = alpha * mGravity[1] + (1-alpha)*event.values[1];
+                mGravity[2] = alpha * mGravity[2] + (1-alpha)*event.values[2];
+            }
+
+            if(event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
+                mGeomagnetic[0] = alpha * mGeomagnetic[0] + (1-alpha)*event.values[0];
+                mGeomagnetic[1] = alpha * mGeomagnetic[1] + (1-alpha)*event.values[1];
+                mGeomagnetic[2] = alpha * mGeomagnetic[2] + (1-alpha)*event.values[2];
+            }
+
+            float R[] = new float[9];
+            float I[] = new float[9];
+            boolean success = SensorManager.getRotationMatrix(R,I,mGravity,mGeomagnetic);
+
+            if(success){
+                float orientation[] = new float[3];
+                SensorManager.getOrientation(R,orientation);
+                getInitialAzimuth = (float) Math.toDegrees(orientation[0]);
+                getInitialAzimuth = (getInitialAzimuth+360)*360;
+
+                Animation anim = new RotateAnimation(-currentAzimuth,-getInitialAzimuth,Animation.RELATIVE_TO_SELF,0.5f,Animation.RELATIVE_TO_SELF,0.5f);
+                currentAzimuth = getInitialAzimuth;
+
+                anim.setDuration(500);
+                anim.setRepeatCount(0);
+                anim.setFillAfter(true);
+
+                imageView.startAnimation(anim);
+            }
+        }*/
+
+        //旋轉偵測
+
+        /*
         long currentTime = System.currentTimeMillis();
         if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
             if (isCalibrating) {
@@ -479,36 +658,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 imageView.setRotation((float) gyroRotation[2]);
                 //imageView.setRotation(imageView.getRotation() + +(float) dz_deg);
 
-                //面部朝向
-                /*
-                if(imageView.getRotation()>=-22.5&&imageView.getRotation()<=22.5){
-                    cleanColor();
-                    cellMap[user_x-1][user_y].setBackgroundColor(Color.CYAN);
-                    cellMap[user_x][user_y-1].setBackgroundColor(Color.CYAN);
-                    cellMap[user_x][user_y+1].setBackgroundColor(Color.CYAN);
-                }
-                if(imageView.getRotation()<=-22.5&&imageView.getRotation()>=-67.5){
-                    cleanColor();
-                    cellMap[user_x-1][user_y-1].setBackgroundColor(Color.CYAN);
-                    cellMap[user_x-1][user_y].setBackgroundColor(Color.CYAN);
-                    cellMap[user_x-1][user_y+1].setBackgroundColor(Color.CYAN);
-                    cellMap[user_x][user_y+1].setBackgroundColor(Color.CYAN);
-                    cellMap[user_x+1][user_y+1].setBackgroundColor(Color.CYAN);
-                }
-                if(imageView.getRotation()<=-67.5&&imageView.getRotation()>=-112.5){
-                    cleanColor();
-                    cellMap[user_x-1][user_y].setBackgroundColor(Color.CYAN);
-                    cellMap[user_x][user_y+1].setBackgroundColor(Color.CYAN);
-                    cellMap[user_x+1][user_y].setBackgroundColor(Color.CYAN);
-                }
-                if(imageView.getRotation()<=-112.5&&imageView.getRotation()>=-157.5){
-                    cleanColor();
-                    cellMap[user_x-1][user_y+1].setBackgroundColor(Color.CYAN);
-                    cellMap[user_x][user_y+1].setBackgroundColor(Color.CYAN);
-                    cellMap[user_x+1][user_y-1].setBackgroundColor(Color.CYAN);
-                    cellMap[user_x+1][user_y].setBackgroundColor(Color.CYAN);
-                    cellMap[user_x+1][user_y+1].setBackgroundColor(Color.CYAN);
-                }*/
+                cellMap[user_x][user_y].setRotation((float) -gyroRotation[2]);
 
                 // 更新 UI
                 //binding.gyroX.setText(String.format(Locale.getDefault(), "%.2f", gyroValues[0]));
@@ -518,19 +668,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 //updateProgressBar((int) gyroRotation[2]);
             }
         }
-    }
+        */
 
-    private void cleanColor(){
-        cellMap[user_x-1][user_y-1].setBackgroundColor(Color.GRAY);
-        cellMap[user_x-1][user_y].setBackgroundColor(Color.GRAY);
-        cellMap[user_x-1][user_y+1].setBackgroundColor(Color.GRAY);
-        cellMap[user_x][user_y-1].setBackgroundColor(Color.GRAY);
-        cellMap[user_x][user_y+1].setBackgroundColor(Color.GRAY);
-        cellMap[user_x+1][user_y-1].setBackgroundColor(Color.GRAY);
-        cellMap[user_x+1][user_y].setBackgroundColor(Color.GRAY);
-        cellMap[user_x+1][user_y+1].setBackgroundColor(Color.GRAY);
     }
-
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
