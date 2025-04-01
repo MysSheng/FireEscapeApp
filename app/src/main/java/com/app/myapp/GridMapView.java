@@ -46,9 +46,26 @@ public class GridMapView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
+        /*
+        // 只應用平移，不應用縮放
+        Matrix translationMatrix = new Matrix();
+        float[] values = new float[9];
+        transformMatrix.getValues(values);
+        translationMatrix.postTranslate(values[Matrix.MTRANS_X], values[Matrix.MTRANS_Y]);
+
+
         // 套用縮放與平移矩陣
         canvas.save();
-        canvas.concat(transformMatrix);
+        //canvas.concat(transformMatrix);
+        canvas.concat(translationMatrix);  // 只應用平移 */
+        // 只提取平移部分，忽略縮放
+        float[] matrixValues = new float[9];
+        transformMatrix.getValues(matrixValues);
+        float translateX = matrixValues[Matrix.MTRANS_X];
+        float translateY = matrixValues[Matrix.MTRANS_Y];
+
+        canvas.save();
+        canvas.translate(translateX, translateY); // 只應用平移
 
         int width = getWidth();
         int height = getHeight();
@@ -67,8 +84,8 @@ public class GridMapView extends View {
                     float scale = scaleMap.getOrDefault(row * gridCols + col, 1.0f); // 預設縮放 1.0
                     float rotation = rotationMap.getOrDefault(row * gridCols + col, 0.0f); // 預設旋轉 0°
 
-                    //int alpha = alphaMap.getOrDefault(row * gridCols + col, 255); // 預設不透明 (255)
-                    //imagePaint.setAlpha(alpha);
+                    int alpha = alphaMap.getOrDefault(row * gridCols + col, 255); // 預設不透明 (255)
+                    imagePaint.setAlpha(alpha);
 
                     float scaledWidth = cellWidth * scale;
                     float scaledHeight = cellHeight * scale;
@@ -84,21 +101,32 @@ public class GridMapView extends View {
                     Rect dstRect = new Rect((int) left, (int) top, (int) right, (int) bottom);
                     canvas.save(); // 儲存當前畫布狀態
                     canvas.rotate(rotation, centerX, centerY); // 以格子的中心旋轉
-                    canvas.drawBitmap(gridImages[col][row], null, dstRect, null);
+                    canvas.drawBitmap(gridImages[col][row], null, dstRect, imagePaint);
                     canvas.restore(); // 恢復畫布狀態，避免影響其他格子
                 }
             }
         }
 
         // 繪製網格線（如果開啟）
-        if (showGrid) {
+        /*if (showGrid) {
             for (int i = 0; i <= gridRows; i++) {
                 canvas.drawLine(0, i * cellHeight, width, i * cellHeight, gridPaint);
             }
             for (int j = 0; j <= gridCols; j++) {
                 canvas.drawLine(j * cellWidth, 0, j * cellWidth, height, gridPaint);
             }
+        }*/
+
+        // 繪製網格線
+        if (showGrid) {
+            for (int i = 0; i <= gridRows; i++) {
+                canvas.drawLine(0, i * cellHeight, getWidth(), i * cellHeight, gridPaint);
+            }
+            for (int j = 0; j <= gridCols; j++) {
+                canvas.drawLine(j * cellWidth, 0, j * cellWidth, getHeight(), gridPaint);
+            }
         }
+
 
         /* 畫水平線
         for (int i = 0; i <= gridRows; i++) {
@@ -151,6 +179,14 @@ public class GridMapView extends View {
     public void setCellRotation(int col, int row, float angle) {
         if (col >= 0 && col < gridCols && row >= 0 && row < gridRows) {
             rotationMap.put(row * gridCols + col, angle);
+            invalidate();
+        }
+    }
+
+    // 設定特定格子的透明度 (0 = 完全透明，255 = 完全不透明)
+    public void setCellAlpha(int col, int row, int alpha) {
+        if (col >= 0 && col < gridCols && row >= 0 && row < gridRows) {
+            alphaMap.put(row * gridCols + col, Math.max(0, Math.min(255, alpha))); // 限制範圍
             invalidate();
         }
     }

@@ -309,21 +309,26 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 imgHeight = imageView.getDrawable().getIntrinsicHeight();
                 int viewWidth = imageView.getWidth();
                 int viewHeight = imageView.getHeight();
-
                 // 計算初始縮放比例，讓圖片完整顯示
                 float scaleX = (float) viewWidth / imgWidth;
                 float scaleY = (float) viewHeight / imgHeight;
                 float initScale = Math.min(scaleX, scaleY);
-
                 // 設定初始縮放
                 scaleFactor = initScale;
-                applyTransformation(imageView,gridMapView);
-
+                // 放大3倍
+                scaleFactor *= 3f;
+                // 計算平移量，讓圖片居中顯示
+                float scaledWidth = imgWidth * scaleFactor;
+                float scaledHeight = imgHeight * scaleFactor;
+                float translateX = (viewWidth - scaledWidth) / 2;
+                float translateY = (viewHeight - scaledHeight) / 2;
+                // 應用變換
+                applyTransformation(imageView, gridMapView, translateX, translateY);
                 // 設定 GridMap 大小與圖片匹配
-                gridMapView.setGridSize(imgWidth, imgHeight);
-
+                //gridMapView.setGridSize((int)(imgWidth * 1), (int)(imgHeight * 1));
+                gridMapView.setGridSize((int) scaledWidth, (int) scaledHeight);
                 // 調整 GridMapView 的大小
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(imgWidth, imgHeight);
+                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams((int) scaledWidth, (int) scaledHeight);
                 gridMapView.setLayoutParams(params);
             }
         });
@@ -331,191 +336,42 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Bitmap userBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.user_sign);
         Bitmap roadBitmap = BitmapFactory.decodeResource(getResources(),R.drawable.u_d_removebg);
         gridMapView.setCellImage(13, 39, userBitmap);
-        for(int i=0;i<=38;i++){
+        gridMapView.setCellAlpha(13, 39, 200);
+        for(int i=32;i<=38;i++){
             gridMapView.setCellImage(13, i, roadBitmap);
+            //gridMapView.setCellScale(13, i, 3.0f);
         }
-        gridMapView.setCellScale(13, 39, 3.5f);
+        gridMapView.setCellImage(13, 32, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
+        gridMapView.setCellImage(13, 38, BitmapFactory.decodeResource(getResources(),R.drawable.d_u_start));
+        //gridMapView.setCellScale(13, 39, 4.5f);
         //gridMapView.setCellRotation(13, 39, 45.0f);
 
+        gridMapView.setCellImage(34, 65, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
+        gridMapView.setCellImage(65, 65, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
+        gridMapView.setCellImage(65, 34, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
         for(int i=0;i<100;i++){
             for(int j=0;j<100;j++){
-                gridMapView.setGridVisibility(false);
+                //gridMapView.setGridVisibility(false);
             }
         }
-
-        /*
-
-        gridLayout = findViewById(R.id.gridLayout);
-        gridLayout.setRowCount(rowCount);
-        gridLayout.setColumnCount(columnCount);
-        for (int i = 0; i < rowCount; i++) {
-            for (int j = 0; j < columnCount; j++) {
-                ImageView cell = new ImageView(this);
-                GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-                params.width = 0;
-                params.height = 0;
-                params.rowSpec = GridLayout.spec(i, 1f);
-                params.columnSpec = GridLayout.spec(j, 1f);
-                cell.setLayoutParams(params);
-                cell.setBackgroundResource(R.drawable.grid_cell); // 設定背景為白底黑框
-                GradientDrawable drawable = (GradientDrawable) cell.getBackground();
-                drawable.setColor(changeColor(escapeMap[i][j].getType()));
-                drawable.setStroke(0, Color.TRANSPARENT); // 移除邊線
-
-                //用於變換完成的還原
-                //ImageView temp = new ImageView(this);
-                //temp.setLayoutParams(params);
-                //temp.setBackground(cell.getBackground()); // 複製背景
-
-                // 建立深度拷貝
-                ImageView temp = deepCopyImageView(cell);
-
-                if(escapeMap[i][j].isSelected()&&(escapeMap[i][j].getX()!=user_x||escapeMap[i][j].getY()!=user_y))
-                    drawable.setColor(Color.YELLOW);
-                //點擊變換
-                int finalI = i;
-                int finalJ = j;
-                cell.setOnClickListener(v -> {
-                    //還原
-                    //cellMap[user_x][user_y].setBackgroundColor(Color.TRANSPARENT);
-                    //params.width/=30;
-                    //params.height/=30;
-                    //cellMap[user_x][user_y].setLayoutParams(params);
-                    //cellMap[user_x][user_y].setLayoutParams(params);
-                    //cellMap[user_x][user_y].setImageResource(-1);
-                    cellMap[9][45]=temp;
-                    //更新
-                    cell.setImageResource(R.drawable.user_sign);
-                    cell.setBackgroundColor(Color.WHITE);
-                    GridLayout.LayoutParams paramsPlus = (GridLayout.LayoutParams) cellMap[user_x][user_y].getLayoutParams();
-                    paramsPlus.width = 30;  // 讓這格變大
-                    paramsPlus.height = 30;
-                    cell.setLayoutParams(paramsPlus);
-                    user_x=finalI;
-                    user_y=finalJ;
-                });
-                gridLayout.addView(cell);
-                cellMap[i][j] = cell; // 存入二維陣列
-            }
-
-        }
-
-        setUserLoc(user_x,user_y);
-
-
-
-         */
-
-        /*
-        //Button btnTakePicture = findViewById(R.id.btnTakePicture);
-        btnTakePicture.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                takePicture();
-            }
-        });*/
     }
 
-    private void applyTransformation(ImageView imageView,GridMapView gridMapView) {
-        matrix.reset();
+    private void applyTransformation(ImageView imageView, GridMapView gridMapView, float translateX, float translateY) {
+        Matrix matrix = new Matrix();
+        // 應用縮放
         matrix.postScale(scaleFactor, scaleFactor);
+        // 應用平移
         matrix.postTranslate(translateX, translateY);
-
+        // 設定 ImageView 的矩陣
         imageView.setImageMatrix(matrix);
-        gridMapView.setTransformMatrix(matrix);
-    }
 
-    private ImageView deepCopyImageView(ImageView original) {
-        ImageView copy = new ImageView(original.getContext());
+        // 設定 GridMapView 的矩陣
+        //gridMapView.setTransformMatrix(matrix);
 
-        // 複製 LayoutParams
-        GridLayout.LayoutParams originalParams = (GridLayout.LayoutParams) original.getLayoutParams();
-        GridLayout.LayoutParams copyParams = new GridLayout.LayoutParams(originalParams);
-        copy.setLayoutParams(copyParams);
-
-        // 複製背景
-        Drawable originalBackground = original.getBackground();
-        if (originalBackground != null) {
-            copy.setBackground(originalBackground.getConstantState().newDrawable().mutate());
-            copy.setBackground(null);
-        }
-
-        // 複製圖片 (如果有設定)
-        Drawable originalDrawable = original.getDrawable();
-        if (originalDrawable != null) {
-            copy.setImageDrawable(originalDrawable.getConstantState().newDrawable().mutate());
-            copy.setImageDrawable(null);
-        }
-
-        // 複製其他屬性
-        copy.setPadding(original.getPaddingLeft(), original.getPaddingTop(),
-                original.getPaddingRight(), original.getPaddingBottom());
-        copy.setScaleType(original.getScaleType());
-        copy.setContentDescription(original.getContentDescription());
-
-        return copy;
-    }
-
-    private void setUserLoc(int x,int y){
-        //cellMap[user_x][user_y].setBackgroundColor(Color.WHITE);
-        //更改新格子
-        cellMap[x][y].setImageResource(R.drawable.user_sign);
-        cellMap[x][y].setBackgroundColor(Color.WHITE);
-        GridLayout.LayoutParams params = (GridLayout.LayoutParams) cellMap[user_x][user_y].getLayoutParams();
-        params.width = (int) 30;  // 讓這格變大
-        params.height = (int) 30;
-        cellMap[x][y].setLayoutParams(params);
-        user_x=x;
-        user_y=y;
-    }
-
-    // 計算 Grid 大小後更新使用者箭頭
-    private void updateUserMarkerSize() {
-        if (gridSize > 0) {
-            ViewGroup.LayoutParams params = new ViewGroup.LayoutParams((int) gridSize, (int) gridSize);
-            userMarker.setLayoutParams(params);
-            userMarker.setVisibility(View.VISIBLE);
-        }
-    }
-
-    // 移動使用者位置
-    public void moveUser(int x, int y) {
-        if (gridSize == 0) return; // 確保 Grid 大小已經計算好
-
-        userMarker.setX(gridLayout.getX() + (y * gridSize));
-        userMarker.setY(gridLayout.getY() + (x * gridSize));
-    }
-
-    private int changeColor(int type){
-        if(type==Grid.WALL) return Color.BLACK;
-        else if(type==Grid.FIRE) return Color.RED;
-        else if(type==Grid.ROAD) return Color.WHITE;
-        else if(type==Grid.EXIT) return Color.BLUE;
-        else return Color.WHITE;
-    }
-
-    // 將 direction 數字轉換為文字表示
-    private static String getDirectionText(int direction) {
-        switch (direction) {
-            case Grid.UP:
-                return "↑";
-            case Grid.DOWN:
-                return "↓";
-            case Grid.LEFT:
-                return "←";
-            case Grid.RIGHT:
-                return "→";
-            case Grid.UP_LEFT:
-                return "↖";
-            case Grid.UP_RIGHT:
-                return "↗";
-            case Grid.DOWN_LEFT:
-                return "↙";
-            case Grid.DOWN_RIGHT:
-                return "↘";
-            default:
-                return "x"; // 無方向
-        }
+        // GridMapView 只應用平移
+        Matrix translationMatrix = new Matrix();
+        translationMatrix.postTranslate(translateX, translateY);
+        gridMapView.setTransformMatrix(translationMatrix);
     }
 
     /*
@@ -540,7 +396,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //getInitialOrientation(); // 獲取初始方向
 
     }
-*/
+    */
     @Override
     protected void onPause() {
         super.onPause();
@@ -968,167 +824,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         if (mCameraTakePicCaptureSession != null) {
             mCameraTakePicCaptureSession.close();
             mCameraTakePicCaptureSession = null;
-        }
-    }
-
-    private void takePicture() {
-        if(mCameraDevice == null) {
-            Toast.makeText(MainActivity.this, "Camera錯誤", Toast.LENGTH_LONG)
-                    .show();
-            return;
-        }
-
-        // 準備影像檔
-        final File file = new File(Environment
-                .getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-                .getPath(), "photo.jpg");
-
-        // 準備OnImageAvailableListener
-        ImageReader.OnImageAvailableListener imgReaderOnImageAvailable =
-                new ImageReader.OnImageAvailableListener() {
-                    @Override
-                    public void onImageAvailable(ImageReader imageReader) {
-                        // 把影像資料寫入檔案
-                        Image image = null;
-                        try {
-                            image = imageReader.acquireLatestImage();
-                            ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-                            byte[] bytes = new byte[buffer.capacity()];
-                            buffer.get(bytes);
-
-                            OutputStream output = null;
-                            try {
-                                output = new FileOutputStream(file);
-                                output.write(bytes);
-                            } finally {
-                                if (null != output)
-                                    output.close();
-                            }
-                        } catch (FileNotFoundException e) {
-                            e.printStackTrace();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        } finally {
-                            if (image != null)
-                                image.close();
-                        }
-                    }
-                };
-
-        // 取得 CameraManager
-        CameraManager camMgr = (CameraManager) getSystemService(CAMERA_SERVICE);
-
-        try {
-            CameraCharacteristics camChar =
-                    camMgr.getCameraCharacteristics(mCameraDevice.getId());
-
-            // 設定拍照的解析度
-            Size[] jpegSizes = null;
-            if (camChar != null)
-                jpegSizes = camChar.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                        .getOutputSizes(ImageFormat.JPEG);
-
-            int picWidth = 640;
-            int picHeight = 480;
-            if (jpegSizes != null && jpegSizes.length > 0) {
-                picWidth = jpegSizes[0].getWidth();
-                picHeight = jpegSizes[0].getHeight();
-            }
-
-            // 設定照片要輸出給誰
-            // 1. 儲存為影像檔； 2. 輸出給UI的TextureView顯示
-            ImageReader imgReader = ImageReader.newInstance(
-                    picWidth, picHeight, ImageFormat.JPEG, 1);
-
-            // 準備拍照用的thread
-            HandlerThread thread = new HandlerThread("CameraTakePicture");
-            thread.start();
-            final Handler backgroudHandler = new Handler(thread.getLooper());
-
-            // 把OnImageAvailableListener和thread設定給ImageReader
-            imgReader.setOnImageAvailableListener(
-                    imgReaderOnImageAvailable, backgroudHandler);
-
-            List<Surface> outputSurfaces = new ArrayList<Surface>(2);
-            outputSurfaces.add(imgReader.getSurface());
-            outputSurfaces.add(new Surface(mTextureView.getSurfaceTexture()));
-
-            final CaptureRequest.Builder captureBuilder =
-                    mCameraDevice.createCaptureRequest(
-                            CameraDevice.TEMPLATE_STILL_CAPTURE);
-            captureBuilder.addTarget(imgReader.getSurface());
-            captureBuilder.set(CaptureRequest.CONTROL_MODE,
-                    CameraMetadata.CONTROL_MODE_AUTO);
-
-            // 決定照片的方向（直的或橫的）
-            SparseIntArray PICTURE_ORIENTATIONS = new SparseIntArray();
-            PICTURE_ORIENTATIONS.append(Surface.ROTATION_0, 90);
-            PICTURE_ORIENTATIONS.append(Surface.ROTATION_90, 0);
-            PICTURE_ORIENTATIONS.append(Surface.ROTATION_180, 270);
-            PICTURE_ORIENTATIONS.append(Surface.ROTATION_270, 180);
-
-            int rotation = getWindowManager().getDefaultDisplay().getRotation();
-            captureBuilder.set(CaptureRequest.JPEG_ORIENTATION,
-                    PICTURE_ORIENTATIONS.get(rotation));
-
-            // 準備拍照的callback
-            final CameraCaptureSession.CaptureCallback camCaptureCallback =
-                    new CameraCaptureSession.CaptureCallback() {
-                        @Override
-                        public void onCaptureCompleted(CameraCaptureSession session,
-                                                       CaptureRequest request, TotalCaptureResult result) {
-                            super.onCaptureCompleted(session, request, result);
-
-                            Integer mode = result.get(CaptureResult.STATISTICS_FACE_DETECT_MODE);
-                            Face[] faces = result.get(CaptureResult.STATISTICS_FACES);
-                            if(faces != null && mode != null)
-                                Toast.makeText(MainActivity.this, "人臉: " +
-                                        faces.length, Toast.LENGTH_SHORT).show();
-
-                            // 播放快門音效檔
-                            Uri uri = Uri.parse("android.resource://" +
-                                    getPackageName() + "/" + R.raw.sound_camera_shutter);
-                            MediaPlayer mp = MediaPlayer.create(MainActivity.this, uri);
-                            mp.start();
-
-                            Toast.makeText(MainActivity.this, "拍照完成\n影像檔: " +
-                                    file, Toast.LENGTH_SHORT).show();
-                            startPreview();
-                        }
-
-                        @Override
-                        public void onCaptureProgressed(CameraCaptureSession session,
-                                                        CaptureRequest request, CaptureResult partialResult) {
-                        }
-                    };
-
-            // 最後一步就是建立Capture Session
-            // 然後啟動拍照
-            mCameraDevice.createCaptureSession(outputSurfaces,
-                    new CameraCaptureSession.StateCallback() {
-                        @Override
-                        public void onConfigured(CameraCaptureSession cameraCaptureSession) {
-                            try {
-                                closeAllCameraCaptureSession();
-
-                                // 記下這個capture session，使用完畢要刪除
-                                mCameraTakePicCaptureSession = cameraCaptureSession;
-
-                                cameraCaptureSession.capture(captureBuilder.build(),
-                                        camCaptureCallback, backgroudHandler);
-                            } catch (CameraAccessException e) {
-                                e.printStackTrace();
-                            }
-                        }
-
-                        @Override
-                        public void onConfigureFailed(CameraCaptureSession cameraCaptureSession) {
-                            Toast.makeText(MainActivity.this, "拍照起始錯誤", Toast.LENGTH_LONG)
-                                    .show();                }
-                    },
-                    backgroudHandler);
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
         }
     }
 }
