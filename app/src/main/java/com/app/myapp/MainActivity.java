@@ -340,9 +340,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         });
 
         // 縮小到原始大小
-        setZoomScale(1.0f*1.33f*1.33f);
+        setZoomScale(1.0f*1.33f*1.33f*1.33f);
 
-        Bitmap userBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.user_sign);
+        Bitmap userBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.user_point);
         Bitmap roadBitmap = BitmapFactory.decodeResource(getResources(),R.drawable.u_d_removebg);
         //gridMapView.setCellImage(13, 39, userBitmap);
         //gridMapView.setCellAlpha(13, 39, 200);
@@ -358,15 +358,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         gridMapView.setCellImage(34, 65, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
         gridMapView.setCellImage(65, 65, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
         gridMapView.setCellImage(65, 34, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
-        gridMapView.setCellImage(9, 45, BitmapFactory.decodeResource(getResources(),R.drawable.user_sign));
+        gridMapView.setCellImage(9, 45, BitmapFactory.decodeResource(getResources(),R.drawable.user_point));
         gridMapView.setCellScale(9, 45, 4.5f);
         for(int i=0;i<100;i++){
             for(int j=0;j<100;j++){
-                //gridMapView.setGridVisibility(false);
+                gridMapView.setGridVisibility(false);
             }
         }
 
         findUser();
+        //連續更換位置
+        updateUser(85,85);
+        updateUser(3,3);
+        findUser(true);
 
         Button button1 = findViewById(R.id.button1);
         button1.setOnClickListener(new View.OnClickListener() {
@@ -375,17 +379,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 if(now_scale>=1) {
                     if(now_scale<=1.33f){
                         setZoomScale(1f);
+                        now_x/=now_scale;
+                        now_y/=now_scale;
                         now_scale=1f;
-                        now_x=0;
-                        now_y=0;
-                        findUser();
+                        gridMapView.post(() -> {
+                            setMoveOffset(now_scale, now_x, now_y);
+                        });
                     }
                     else {
                         setZoomScale(now_scale/1.33f);
                         now_scale/=1.33f;
-                        now_x=0;
-                        now_y=0;
-                        findUser();
+                        now_x/=1.33f;
+                        now_y/=1.33f;
+                        gridMapView.post(() -> {
+                            setMoveOffset(now_scale, now_x, now_y);
+                        });
                     }
                 }
             }
@@ -398,10 +406,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 if(now_scale<=4) {
                     setZoomScale(now_scale*1.33f);
                     now_scale*=1.33f;
-                    now_x=0;
-                    now_y=0;
-                    findUser();
+                    now_x*=1.33f;
+                    now_y*=1.33f;
+                    gridMapView.post(() -> {
+                        setMoveOffset(now_scale, now_x, now_y);
+                    });
                 }
+            }
+        });
+
+        Button button3 = findViewById(R.id.button3);
+        button3.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                now_x=0;
+                now_y=0;
+                findUser(true);
             }
         });
 
@@ -468,19 +488,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // 讓 FrameLayout 可以取c得焦點，以接收按鍵事件
         imageContainer.setFocusableInTouchMode(true);
         imageContainer.requestFocus();
-    /*
-        final float moveSpeed = gridMapView.getCellHeight();
-        for(int i=0;i<50-user_y;i++) {
-            now_y += moveSpeed;
-            setMoveOffset(now_scale, now_x, now_y);
-        }
-        for(int i=0;i<50-user_x;i++) {
-            now_x += moveSpeed;
-            setMoveOffset(now_scale, now_x, now_y);
-        }*/
 
     }
-    float now_scale = 1.0f*1.33f*1.33f;
+
+    float now_scale = 1.0f*1.33f*1.33f*1.33f;
     float now_x = 0;
     float now_y=0;
 
@@ -488,8 +499,89 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float posX = 0f, posY = 0f; // 當前平移位置
     private float maxPosX, maxPosY; // 最大可平移距離
 
+    private void updateUser(int x, int y) {
+        GridMapView gridMapView = findViewById(R.id.gridMapView);
+        this.user_x = x;
+        this.user_y = y;
+        gridMapView.post(() -> {
+            // 清空地圖
+            for (int i = 0; i < 100; i++) {
+                for (int j = 0; j < 100; j++) {
+                    gridMapView.setCellImage(i, j, null);
+                    gridMapView.setCellScale(i, j, 1f);
+                }
+            }
+
+            // 更新user位置
+            gridMapView.setCellImage(this.user_x, this.user_y,
+                    BitmapFactory.decodeResource(getResources(), R.drawable.user_point));
+            gridMapView.setCellScale(this.user_x, this.user_y, 4.5f);
+
+            now_x = 0;
+            now_y = 0;
+
+            // 確保在視圖完成佈局後再定位
+            gridMapView.post(() -> {
+                findUser(true);
+            });
+        });
+    }
+
+    private void findUser() {
+        findUser(false);
+    }
+
+    private void findUser(boolean forceRecalculate) {
+        GridMapView gridMapView = findViewById(R.id.gridMapView);
+
+        gridMapView.post(() -> {
+            // 確保視圖已完成佈局
+            if (gridMapView.getHeight() == 0 || gridMapView.getWidth() == 0) {
+                gridMapView.post(() -> findUser(forceRecalculate));
+                return;
+            }
+            if (forceRecalculate || (now_x == 0 && now_y == 0)) {
+                float moveSpeed = gridMapView.getCellHeight();
+                final float target_offset_x = (50 - user_x) * moveSpeed;
+                final float target_offset_y = (50 - user_y) * moveSpeed;
+
+                now_x = target_offset_x;
+                now_y = target_offset_y;
+            }
+
+            // 使用post確保UI更新在主線程執行
+            gridMapView.post(() -> {
+                setMoveOffset(now_scale, now_x, now_y);
+            });
+        });
+    }
+
+    /*
+    private void updateUser(int x,int y){
+        ImageView imageView = findViewById(R.id.imageView);
+        GridMapView gridMapView = findViewById(R.id.gridMapView);
+        this.user_x=x;
+        this.user_y=y;
+        //清空地圖
+        for(int i=0;i<100;i++){
+            for(int j=0;j<100;j++){
+                gridMapView.setCellImage(i, j, null);
+                gridMapView.setCellScale(i, j, 1f);
+            }
+        }
+        //更新user位置
+        gridMapView.setCellImage(this.user_x, this.user_y, BitmapFactory.decodeResource(getResources(),R.drawable.user_sign));
+        gridMapView.setCellScale(this.user_x,this.user_y,4.5f);
+        //setZoomScale(now_scale);
+        now_x=0;
+        now_y=0;
+        findUser();
+    }
+
+
     private void findUser(){
         GridMapView gridMapView = findViewById(R.id.gridMapView);
+
         gridMapView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
             public void onGlobalLayout() {
@@ -505,23 +597,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 setMoveOffset(now_scale, now_x, now_y);
             }
         });
-    }
-
-    private void setZoomScaleWithAnimation(float targetScale, long duration) {
-        ImageView imageView = findViewById(R.id.imageView);
-        if (imageView.getDrawable() == null) return;
-
-        ValueAnimator animator = ValueAnimator.ofFloat(now_scale, targetScale);
-        animator.setDuration(duration);
-        animator.addUpdateListener(animation -> {
-            float scale = (float) animation.getAnimatedValue();
-            setZoomScale(scale);
-        });
-        animator.start();
-        //now_scale = targetScale;
-        //now_x=0;
-        //now_y=0;
-    }
+    }*/
 
     private void setZoomScale(float scale) {
         ImageView imageView = findViewById(R.id.imageView);
@@ -569,8 +645,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         });
 
-
-
     }
 
     private void setMoveOffset(float scale,float moveX,float moveY){
@@ -616,6 +690,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 gridMapView.setLayoutParams(params);
             }
         });
+
     }
 
     private void applyTransformation(ImageView imageView, GridMapView gridMapView, float translateX, float translateY) {
