@@ -190,4 +190,12 @@ public class GridMapView extends View {
             invalidate();
         }
     }
+
+    public float getCellWidth(){
+        return this.cellWidth;
+    }
+
+    public float getCellHeight(){
+        return this.cellHeight;
+    }
 }

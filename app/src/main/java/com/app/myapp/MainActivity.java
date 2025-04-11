@@ -1,6 +1,8 @@
 package com.app.myapp;
 
 import android.Manifest;
+import android.animation.ValueAnimator;
+import android.annotation.SuppressLint;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -38,11 +40,14 @@ import android.os.Bundle;
 import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.OrientationEventListener;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
 import android.widget.Button;
@@ -213,6 +218,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
 
+    @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -333,27 +339,283 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         });
 
+        // 縮小到原始大小
+        setZoomScale(1.0f*1.33f*1.33f);
+
         Bitmap userBitmap = BitmapFactory.decodeResource(getResources(), R.drawable.user_sign);
         Bitmap roadBitmap = BitmapFactory.decodeResource(getResources(),R.drawable.u_d_removebg);
-        gridMapView.setCellImage(13, 39, userBitmap);
-        gridMapView.setCellAlpha(13, 39, 200);
+        //gridMapView.setCellImage(13, 39, userBitmap);
+        //gridMapView.setCellAlpha(13, 39, 200);
         for(int i=32;i<=38;i++){
-            gridMapView.setCellImage(13, i, roadBitmap);
+            //gridMapView.setCellImage(13, i, roadBitmap);
             //gridMapView.setCellScale(13, i, 3.0f);
         }
-        gridMapView.setCellImage(13, 32, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
-        gridMapView.setCellImage(13, 38, BitmapFactory.decodeResource(getResources(),R.drawable.d_u_start));
+        //ridMapView.setCellImage(13, 32, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
+        //gridMapView.setCellImage(13, 38, BitmapFactory.decodeResource(getResources(),R.drawable.d_u_start));
         //gridMapView.setCellScale(13, 39, 4.5f);
         //gridMapView.setCellRotation(13, 39, 45.0f);
-
+        gridMapView.setCellImage(34, 34, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
         gridMapView.setCellImage(34, 65, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
         gridMapView.setCellImage(65, 65, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
         gridMapView.setCellImage(65, 34, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
+        gridMapView.setCellImage(9, 45, BitmapFactory.decodeResource(getResources(),R.drawable.user_sign));
+        gridMapView.setCellScale(9, 45, 4.5f);
         for(int i=0;i<100;i++){
             for(int j=0;j<100;j++){
                 //gridMapView.setGridVisibility(false);
             }
         }
+
+        findUser();
+
+        Button button1 = findViewById(R.id.button1);
+        button1.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(now_scale>=1) {
+                    if(now_scale<=1.33f){
+                        setZoomScale(1f);
+                        now_scale=1f;
+                        now_x=0;
+                        now_y=0;
+                        findUser();
+                    }
+                    else {
+                        setZoomScale(now_scale/1.33f);
+                        now_scale/=1.33f;
+                        now_x=0;
+                        now_y=0;
+                        findUser();
+                    }
+                }
+            }
+        });
+
+        Button button2 = findViewById(R.id.button2);
+        button2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(now_scale<=4) {
+                    setZoomScale(now_scale*1.33f);
+                    now_scale*=1.33f;
+                    now_x=0;
+                    now_y=0;
+                    findUser();
+                }
+            }
+        });
+
+        FrameLayout imageContainer = findViewById(R.id.imageContainer);
+        imageContainer.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        lastTouchX = event.getX();
+                        lastTouchY = event.getY();
+                        return true;
+
+                    case MotionEvent.ACTION_MOVE:
+                        float dx = event.getX() - lastTouchX;
+                        float dy = event.getY() - lastTouchY;
+
+                        // 更新位置 (限制在邊界內)
+                        posX += dx;
+                        posY += dy;
+                        posX = Math.max(-maxPosX, Math.min(maxPosX, posX));
+                        posY = Math.max(-maxPosY, Math.min(maxPosY, posY));
+
+                        // 應用新位置
+                        applyTransformation(imageView, gridMapView, posX, posY);
+
+                        lastTouchX = event.getX();
+                        lastTouchY = event.getY();
+                        return true;
+                }
+                return false;
+            }
+        });
+
+        // 設定按鍵事件監聽器
+        imageContainer.setOnKeyListener(new View.OnKeyListener() {
+            @Override
+            public boolean onKey(View v, int keyCode, KeyEvent event) {
+                final float moveSpeed = gridMapView.getCellHeight();
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    switch (keyCode) {
+                        case KeyEvent.KEYCODE_DPAD_UP:
+                            now_y-=moveSpeed;
+                            setMoveOffset(now_scale,now_x,now_y);
+                            return true;
+                        case KeyEvent.KEYCODE_DPAD_DOWN:
+                            now_y+=moveSpeed;
+                            setMoveOffset(now_scale,now_x,now_y);
+                            return true;
+                        case KeyEvent.KEYCODE_DPAD_LEFT:
+                            now_x-=moveSpeed;
+                            setMoveOffset(now_scale,now_x,now_y);
+                            return true;
+                        case KeyEvent.KEYCODE_DPAD_RIGHT:
+                            now_x+=moveSpeed;
+                            setMoveOffset(now_scale,now_x,now_y);
+                            return true;
+                    }
+                }
+                return false;
+            }
+        });
+
+        // 讓 FrameLayout 可以取c得焦點，以接收按鍵事件
+        imageContainer.setFocusableInTouchMode(true);
+        imageContainer.requestFocus();
+    /*
+        final float moveSpeed = gridMapView.getCellHeight();
+        for(int i=0;i<50-user_y;i++) {
+            now_y += moveSpeed;
+            setMoveOffset(now_scale, now_x, now_y);
+        }
+        for(int i=0;i<50-user_x;i++) {
+            now_x += moveSpeed;
+            setMoveOffset(now_scale, now_x, now_y);
+        }*/
+
+    }
+    float now_scale = 1.0f*1.33f*1.33f;
+    float now_x = 0;
+    float now_y=0;
+
+    private float lastTouchX, lastTouchY;
+    private float posX = 0f, posY = 0f; // 當前平移位置
+    private float maxPosX, maxPosY; // 最大可平移距離
+
+    private void findUser(){
+        GridMapView gridMapView = findViewById(R.id.gridMapView);
+        gridMapView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                gridMapView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+
+                final float moveSpeed = gridMapView.getCellHeight(); // 假設 moveSpeed 是每次移動的單位
+                final float target_offset_x = (50-user_x)*moveSpeed; // 計算目標 X 偏移量
+                final float target_offset_y = (50-user_y)*moveSpeed; // 計算目標 Y 偏移量
+
+                // 直接設定偏移量
+                now_x += target_offset_x;
+                now_y += target_offset_y;
+                setMoveOffset(now_scale, now_x, now_y);
+            }
+        });
+    }
+
+    private void setZoomScaleWithAnimation(float targetScale, long duration) {
+        ImageView imageView = findViewById(R.id.imageView);
+        if (imageView.getDrawable() == null) return;
+
+        ValueAnimator animator = ValueAnimator.ofFloat(now_scale, targetScale);
+        animator.setDuration(duration);
+        animator.addUpdateListener(animation -> {
+            float scale = (float) animation.getAnimatedValue();
+            setZoomScale(scale);
+        });
+        animator.start();
+        //now_scale = targetScale;
+        //now_x=0;
+        //now_y=0;
+    }
+
+    private void setZoomScale(float scale) {
+        ImageView imageView = findViewById(R.id.imageView);
+        GridMapView gridMapView = findViewById(R.id.gridMapView);
+
+        // 設定 GridMap 預設大小等於圖片的大小
+        imageView.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            if (imageView.getDrawable() != null) {
+                imgWidth = imageView.getDrawable().getIntrinsicWidth();
+                imgHeight = imageView.getDrawable().getIntrinsicHeight();
+                int viewWidth = imageView.getWidth();
+                int viewHeight = imageView.getHeight();
+                // 計算初始縮放比例，讓圖片完整顯示
+                float scaleX = (float) viewWidth / imgWidth;
+                float scaleY = (float) viewHeight / imgHeight;
+                float initScale = Math.min(scaleX, scaleY);
+                // 設定初始縮放
+                scaleFactor = initScale;
+                // 放大3倍
+                scaleFactor *= scale;
+                // 計算平移量，讓圖片居中顯示
+                float scaledWidth = imgWidth * scaleFactor;
+                float scaledHeight = imgHeight * scaleFactor;
+
+                // 計算最大可平移範圍
+                maxPosX = Math.max(0, (scaledWidth - imageView.getWidth()) / 2);
+                maxPosY = Math.max(0, (scaledHeight - imageView.getHeight()) / 2);
+
+                // 限制當前位置在合法範圍內
+                posX = Math.max(-maxPosX, Math.min(maxPosX, posX));
+                posY = Math.max(-maxPosY, Math.min(maxPosY, posY));
+
+
+
+                float translateX = (viewWidth - scaledWidth) / 2;
+                float translateY = (viewHeight - scaledHeight) / 2;
+                // 應用變換
+                //applyTransformation(imageView, gridMapView, translateX, translateY);
+                // 設定 GridMap 大小與圖片匹配
+                //gridMapView.setGridSize((int)(imgWidth * 1), (int)(imgHeight * 1));
+                gridMapView.setGridSize((int) scaledWidth, (int) scaledHeight);
+                // 調整 GridMapView 的大小
+                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams((int) scaledWidth, (int) scaledHeight);
+                gridMapView.setLayoutParams(params);
+            }
+        });
+
+
+
+    }
+
+    private void setMoveOffset(float scale,float moveX,float moveY){
+        ImageView imageView = findViewById(R.id.imageView);
+        GridMapView gridMapView = findViewById(R.id.gridMapView);
+
+        // 設定 GridMap 預設大小等於圖片的大小
+        imageView.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            if (imageView.getDrawable() != null) {
+                imgWidth = imageView.getDrawable().getIntrinsicWidth();
+                imgHeight = imageView.getDrawable().getIntrinsicHeight();
+                int viewWidth = imageView.getWidth();
+                int viewHeight = imageView.getHeight();
+                // 計算初始縮放比例，讓圖片完整顯示
+                float scaleX = (float) viewWidth / imgWidth;
+                float scaleY = (float) viewHeight / imgHeight;
+                float initScale = Math.min(scaleX, scaleY);
+                // 設定初始縮放
+                scaleFactor = initScale;
+                // 放大3倍
+                scaleFactor *= scale;
+                // 計算平移量，讓圖片居中顯示
+                float scaledWidth = imgWidth * scaleFactor;
+                float scaledHeight = imgHeight * scaleFactor;
+
+                // 計算最大可平移範圍
+                maxPosX = Math.max(0, (scaledWidth - imageView.getWidth()) / 2);
+                maxPosY = Math.max(0, (scaledHeight - imageView.getHeight()) / 2);
+
+                // 限制當前位置在合法範圍內
+                posX = Math.max(-maxPosX, Math.min(maxPosX, posX));
+                posY = Math.max(-maxPosY, Math.min(maxPosY, posY));
+
+                float translateX = (viewWidth - scaledWidth) / 2 + moveX;
+                float translateY = (viewHeight - scaledHeight) / 2 + moveY;
+                // 應用變換
+                applyTransformation(imageView, gridMapView, translateX, translateY);
+                // 設定 GridMap 大小與圖片匹配
+                //gridMapView.setGridSize((int)(imgWidth * 1), (int)(imgHeight * 1));
+                gridMapView.setGridSize((int) scaledWidth, (int) scaledHeight);
+                // 調整 GridMapView 的大小
+                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams((int) scaledWidth, (int) scaledHeight);
+                gridMapView.setLayoutParams(params);
+            }
+        });
     }
 
     private void applyTransformation(ImageView imageView, GridMapView gridMapView, float translateX, float translateY) {
