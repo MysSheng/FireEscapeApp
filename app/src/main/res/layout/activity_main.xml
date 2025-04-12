@@ -15,9 +15,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHeight_percent="0.45" />
-    <!--    app:layout_constraintBottom_toTopOf="@+id/imageContainer" /> -->
 
-    <!-- 指南針箭頭 -->
     <ImageView
         android:id="@+id/compassArrow"
         android:layout_width="64dp"
@@ -29,20 +27,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!--
-    <GridLayout
-        android:id="@+id/gridLayout"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_margin="4dp"
-        android:rowCount="100"
-        android:columnCount="100"
-        app:layout_constraintTop_toBottomOf="@id/textureView"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent">
-    </GridLayout>
-    -->
     <FrameLayout
         android:id="@+id/imageContainer"
         android:layout_width="380dp"
@@ -95,17 +79,5 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content" />
     </FrameLayout>
-
-
-    <!--
-    <ImageView
-        android:id="@+id/userMarker"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
-        android:src="@drawable/compass_arrow"
-        android:visibility="gone"
-        app:layout_constraintStart_toStartOf="@id/gridLayout"
-        app:layout_constraintTop_toTopOf="@id/gridLayout" />
-   -->
 
 </android.support.constraint.ConstraintLayout>

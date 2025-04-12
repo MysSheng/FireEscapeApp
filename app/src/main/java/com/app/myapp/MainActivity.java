@@ -42,6 +42,7 @@ import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
@@ -78,7 +79,6 @@ import android.os.Bundle;
 import android.widget.ImageView;
 
 
-//import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
     //處理手機旋轉角度
@@ -100,7 +100,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     //陀螺儀旋轉
     private static final String TAG = "MainActivity";
     private static final long CALIBRATION_TIME_MS = 60_000; // 1 minute in milliseconds
-
     private SensorManager sensorManager;
     private Sensor accelerometerSensor,magnetometerSensor;
     private Sensor gyroscope;
@@ -119,25 +118,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     boolean isLastMagnetometerArrayCopied = false;
     float currentDegree = 0f;
     private long lastUpdateTime = 0;
-
     private boolean isCalibrating = false;
     private int calibrationCount = 0;
     private long calibrationStartTime = 0;
-
-
     private final int REQUEST_PERMISSION_CAMERA = 100;
     private boolean mbFaceDetAvailable;
     private int miMaxFaceCount = 0;
     private int miFaceDetMode;
-
     private TextureView mTextureView = null;
-
     private Size mPreviewSize = null;
     private CameraDevice mCameraDevice = null;
     private CaptureRequest.Builder mPreviewBuilder = null;
     private CameraCaptureSession mCameraPreviewCaptureSession = null,
                                 mCameraTakePicCaptureSession = null;
-
     // 當UI的TextureView建立時，會執行onSurfaceTextureAvailable()
     private TextureView.SurfaceTextureListener mSurfaceTextureListener =
             new TextureView.SurfaceTextureListener() {
@@ -161,38 +154,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
                 }
             };
-
     private final int rowCount = 100;
     private final int columnCount = 100;
     private ImageView[][] cellMap = new ImageView[rowCount][columnCount]; // 儲存 TextView 參照
-
     private int user_x = 9;
     private int user_y = 45;
-
-    private float gridWidth;
-    private float gridHeight;
-
-    private float gridSize = 0; // 儲存 Grid 的大小
-
-    private ImageView userMarker; // 新增的使用者箭頭圖示
-    //private GridLayout gridLayout = findViewById(R.id.gridLayout);
-    private GridLayout gridLayout ;
-
-
-
-
-    private Matrix matrix = new Matrix();
-
     private float scaleFactor = 1.0f;
-    private float translateX = 0f;
-    private float translateY = 0f;
     private int imgWidth, imgHeight; // 儲存圖片的原始大小
-
-
-
-
-
-
 
     //自動偵測位置
     private Handler handler = new Handler();
@@ -308,37 +276,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         ImageView imageView = findViewById(R.id.imageView);
         GridMapView gridMapView = findViewById(R.id.gridMapView);
 
-        // 設定 GridMap 預設大小等於圖片的大小
-        imageView.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-            if (imageView.getDrawable() != null) {
-                imgWidth = imageView.getDrawable().getIntrinsicWidth();
-                imgHeight = imageView.getDrawable().getIntrinsicHeight();
-                int viewWidth = imageView.getWidth();
-                int viewHeight = imageView.getHeight();
-                // 計算初始縮放比例，讓圖片完整顯示
-                float scaleX = (float) viewWidth / imgWidth;
-                float scaleY = (float) viewHeight / imgHeight;
-                float initScale = Math.min(scaleX, scaleY);
-                // 設定初始縮放
-                scaleFactor = initScale;
-                // 放大3倍
-                scaleFactor *= 3f;
-                // 計算平移量，讓圖片居中顯示
-                float scaledWidth = imgWidth * scaleFactor;
-                float scaledHeight = imgHeight * scaleFactor;
-                float translateX = (viewWidth - scaledWidth) / 2;
-                float translateY = (viewHeight - scaledHeight) / 2;
-                // 應用變換
-                applyTransformation(imageView, gridMapView, translateX, translateY);
-                // 設定 GridMap 大小與圖片匹配
-                //gridMapView.setGridSize((int)(imgWidth * 1), (int)(imgHeight * 1));
-                gridMapView.setGridSize((int) scaledWidth, (int) scaledHeight);
-                // 調整 GridMapView 的大小
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams((int) scaledWidth, (int) scaledHeight);
-                gridMapView.setLayoutParams(params);
-            }
-        });
-
         // 縮小到原始大小
         setZoomScale(1.0f*1.33f*1.33f*1.33f);
 
@@ -370,6 +307,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //連續更換位置
         updateUser(85,85);
         updateUser(3,3);
+        updateUser(29,73);
         findUser(true);
 
         Button button1 = findViewById(R.id.button1);
@@ -489,15 +427,70 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         imageContainer.setFocusableInTouchMode(true);
         imageContainer.requestFocus();
 
+        //單指滑動地圖雙指縮放調整解析倍率
+        scaleDetector = new ScaleGestureDetector(this, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            @Override
+            public boolean onScale(ScaleGestureDetector detector) {
+                float scaleFactor = detector.getScaleFactor(); // 手勢的縮放倍率
+
+                // 設定最大最小範圍
+                float newScale = now_scale * scaleFactor;
+                newScale = Math.max(1.0f, Math.min(newScale, 1.33f*1.33f*1.33f*1.33f*1.33f));
+
+                // 更新比例與平移（為了穩定性，可根據需要調整 now_x/now_y 的比例）
+                now_scale = newScale;
+                now_x *= scaleFactor;
+                now_y *= scaleFactor;
+
+                setMoveOffset(now_scale, now_x, now_y);
+                return true;
+            }
+        });
+
+        imageContainer.setOnTouchListener(new View.OnTouchListener() {
+            private float lastTouchX;
+            private float lastTouchY;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                scaleDetector.onTouchEvent(event); // 讓 ScaleGestureDetector 處理縮放手勢
+
+                if (event.getPointerCount() == 1) { // 單指才處理拖動
+                    switch (event.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            lastTouchX = event.getX();
+                            lastTouchY = event.getY();
+                            return true;
+
+                        case MotionEvent.ACTION_MOVE:
+                            float currentX = event.getX();
+                            float currentY = event.getY();
+
+                            float deltaX = currentX - lastTouchX;
+                            float deltaY = currentY - lastTouchY;
+
+                            lastTouchX = currentX;
+                            lastTouchY = currentY;
+
+                            now_x += deltaX;
+                            now_y += deltaY;
+
+                            setMoveOffset(now_scale, now_x, now_y);
+                            return true;
+                    }
+                }
+                return true;
+            }
+        });
+
+
     }
 
-    float now_scale = 1.0f*1.33f*1.33f*1.33f;
-    float now_x = 0;
-    float now_y=0;
-
+    private float now_scale = 1.0f*1.33f*1.33f*1.33f,now_x = 0,now_y=0;
     private float lastTouchX, lastTouchY;
     private float posX = 0f, posY = 0f; // 當前平移位置
     private float maxPosX, maxPosY; // 最大可平移距離
+    private ScaleGestureDetector scaleDetector;
 
     private void updateUser(int x, int y) {
         GridMapView gridMapView = findViewById(R.id.gridMapView);
@@ -555,49 +548,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             });
         });
     }
-
-    /*
-    private void updateUser(int x,int y){
-        ImageView imageView = findViewById(R.id.imageView);
-        GridMapView gridMapView = findViewById(R.id.gridMapView);
-        this.user_x=x;
-        this.user_y=y;
-        //清空地圖
-        for(int i=0;i<100;i++){
-            for(int j=0;j<100;j++){
-                gridMapView.setCellImage(i, j, null);
-                gridMapView.setCellScale(i, j, 1f);
-            }
-        }
-        //更新user位置
-        gridMapView.setCellImage(this.user_x, this.user_y, BitmapFactory.decodeResource(getResources(),R.drawable.user_sign));
-        gridMapView.setCellScale(this.user_x,this.user_y,4.5f);
-        //setZoomScale(now_scale);
-        now_x=0;
-        now_y=0;
-        findUser();
-    }
-
-
-    private void findUser(){
-        GridMapView gridMapView = findViewById(R.id.gridMapView);
-
-        gridMapView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                gridMapView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-
-                final float moveSpeed = gridMapView.getCellHeight(); // 假設 moveSpeed 是每次移動的單位
-                final float target_offset_x = (50-user_x)*moveSpeed; // 計算目標 X 偏移量
-                final float target_offset_y = (50-user_y)*moveSpeed; // 計算目標 Y 偏移量
-
-                // 直接設定偏移量
-                now_x += target_offset_x;
-                now_y += target_offset_y;
-                setMoveOffset(now_scale, now_x, now_y);
-            }
-        });
-    }*/
 
     private void setZoomScale(float scale) {
         ImageView imageView = findViewById(R.id.imageView);
