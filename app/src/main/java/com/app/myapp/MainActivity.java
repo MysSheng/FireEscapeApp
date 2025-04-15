@@ -237,14 +237,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         ImageView imageView = findViewById(R.id.imageView);
         GridMapView gridMapView = findViewById(R.id.gridMapView);
 
-        //測試代碼
-        for(int i=0;i<100;i++){
-            for(int j=0;j<100;j++){
-                if(escapeMap[i][j].getDirection()!=-1){
-                    gridMapView.setCellImage(i, j, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
-                }
-            }
-        }
 
         // 縮小到原始大小
         setZoomScale(1.0f*1.33f*1.33f*1.33f);
@@ -272,13 +264,25 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 //gridMapView.setGridVisibility(false);
             }
         }
+        //測試代碼
+        for(int i=32;i<35;i++){
+            for(int j=10;j<=13;j++){
+                if(escapeMap[i][j].getDirection()!=-1){
+                    gridMapView.setCellImage(j, i, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
+                }
+                else{
+                    gridMapView.setCellImage(j, i, BitmapFactory.decodeResource(getResources(),R.drawable.user_point));
+                }
+            }
+        }
 
-        findUser();
+
+        //findUser();
         //連續更換位置測試
-        updateUser(85,85);
-        updateUser(3,3);
-        updateUser(29,73);
-        findUser(true);
+        //updateUser(85,85);
+        //updateUser(3,3);
+        //updateUser(29,73);
+        //findUser(true);
 
         Button button1 = findViewById(R.id.button1);
         button1.setOnClickListener(new View.OnClickListener() {
