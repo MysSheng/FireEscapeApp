@@ -208,51 +208,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 
         // 初步建構一個大室內空間
-        Grid[][] grid = new Grid[100][100];
-        int fire_x = 27, fire_y = 0;
-        for (int i = 0; i < grid.length; i++) {
-            for (int j = 0; j < grid[0].length; j++) {
-                grid[i][j] = new Grid(i, j);
-            }
-        }
-        for (int i = 0; i < 72; i++) {
-            grid[i][0].setType(Grid.WALL);
-            grid[i][24].setType(Grid.WALL);
-            grid[i][39].setType(Grid.WALL);
-            grid[i][63].setType(Grid.WALL);
-        }
-        for (int i = 0; i < 27; i++) {
-            grid[0][i].setType(Grid.WALL);
-            grid[24][i].setType(Grid.WALL);
-            grid[48][i].setType(Grid.WALL);
-            grid[69][i].setType(Grid.WALL);
-        }
-        for (int i = 39; i < 66; i++) {
-            grid[0][i].setType(Grid.WALL);
-            grid[24][i].setType(Grid.WALL);
-            grid[48][i].setType(Grid.WALL);
-            grid[69][i].setType(Grid.WALL);
-        }
-        for (int i = 51; i < 69; i++) {
-            grid[i][24].setType(Grid.ROAD);
-            grid[i][39].setType(Grid.ROAD);
-        }
-        grid[69][27].setType(Grid.WALL);
-        grid[69][36].setType(Grid.WALL);
-        grid[63][27].setType(Grid.WALL);
-        grid[66][27].setType(Grid.WALL);
-        grid[63][36].setType(Grid.WALL);
-        grid[66][36].setType(Grid.WALL);
-        grid[69][30].setType(Grid.EXIT);
-        grid[48][27].setType(Grid.EXIT);
-        grid[48][36].setType(Grid.EXIT);
-        grid[18][24].setType(Grid.EXIT);
-        grid[18][39].setType(Grid.EXIT);
-        grid[30][24].setType(Grid.EXIT);
-        grid[30][39].setType(Grid.EXIT);
-        grid[0][30].setType(Grid.EXIT);
-        grid[24][12].setType(Grid.EXIT);
-        grid[27][0].setType(Grid.FIRE);
+        CSIE_1F csie1F = new CSIE_1F();
+        Grid[][] grid = csie1F.getGrid();
+        int fire_x = 24, fire_y = 45;
+
+
         Planner fp = new Planner(grid, user_x, user_y, fire_x, fire_y);
         fp.addRoom(new Room(1, 0, 0, 27, 27));
         fp.addRoom(new Room(2, 24, 0, 27, 27));
@@ -262,19 +222,29 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         fp.addRoom(new Room(6, 24, 39, 27, 27));
         fp.addRoom(new Room(7, 48, 30, 24, 36));
         fp.setRunSpeed(2);
-        //fp.do_one_level();
-        fp.do_task();
+        fp.do_one_level();
+        //fp.do_task();
         fp.testNavigator();
         ////////// fp.testEdge();
         fp.testOutgoingEdge();
         ////////// fp.user_guide(user_x, user_y);
 
         //關於GridMap的可視化
-        Grid[][] escapeMap =fp.returnMap();
+        //Grid[][] escapeMap =fp.returnMap();
         //Grid[][] escapeMap = fp.getGridMap();
+        Grid[][] escapeMap = fp.test_one_level();
 
         ImageView imageView = findViewById(R.id.imageView);
         GridMapView gridMapView = findViewById(R.id.gridMapView);
+
+        //測試代碼
+        for(int i=0;i<100;i++){
+            for(int j=0;j<100;j++){
+                if(escapeMap[i][j].getDirection()!=-1){
+                    gridMapView.setCellImage(i, j, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
+                }
+            }
+        }
 
         // 縮小到原始大小
         setZoomScale(1.0f*1.33f*1.33f*1.33f);
@@ -291,20 +261,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //gridMapView.setCellImage(13, 38, BitmapFactory.decodeResource(getResources(),R.drawable.d_u_start));
         //gridMapView.setCellScale(13, 39, 4.5f);
         //gridMapView.setCellRotation(13, 39, 45.0f);
-        gridMapView.setCellImage(34, 34, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
-        gridMapView.setCellImage(34, 65, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
-        gridMapView.setCellImage(65, 65, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
-        gridMapView.setCellImage(65, 34, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
+        //gridMapView.setCellImage(34, 34, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
+        //gridMapView.setCellImage(34, 65, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
+        //gridMapView.setCellImage(65, 65, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
+        //gridMapView.setCellImage(65, 34, BitmapFactory.decodeResource(getResources(),R.drawable.u_d_end));
         gridMapView.setCellImage(9, 45, BitmapFactory.decodeResource(getResources(),R.drawable.user_point));
         gridMapView.setCellScale(9, 45, 4.5f);
         for(int i=0;i<100;i++){
             for(int j=0;j<100;j++){
-                gridMapView.setGridVisibility(false);
+                //gridMapView.setGridVisibility(false);
             }
         }
 
         findUser();
-        //連續更換位置
+        //連續更換位置測試
         updateUser(85,85);
         updateUser(3,3);
         updateUser(29,73);

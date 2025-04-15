@@ -565,6 +565,17 @@ public class Planner {
         }
     }
 
+    public Grid[][] test_one_level(){
+        Grid[][] grids= new Grid[ROWS][COLS];
+        HashMap<Grid,Grid[][]> navigator=global_nav;
+        for (Map.Entry<Grid, Grid[][]> entry : navigator.entrySet()) {
+            Grid key = entry.getKey();          // 取得鍵 (Grid)
+            Grid[][] value = entry.getValue();  // 取得值 (Grid[][])
+            return value;
+        }
+        return grids;
+    }
+
     public char convert(int direction){
         if (direction == Grid.UP) {
             return '↑';
