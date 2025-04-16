@@ -8,6 +8,8 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.graphics.Bitmap;
 import android.graphics.RectF;
+import android.widget.ImageView;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,6 +22,7 @@ public class GridMapView extends View {
     private float cellHeight = 4; // 每個格子的高度
     private Matrix transformMatrix = new Matrix();
     private Bitmap[][] gridImages; // 用來存放每個格子的圖片
+    private ImageView[][] test;
     private boolean showGrid = true; // 是否顯示網格線
     private Map<Integer, Float> scaleMap = new HashMap<>(); // 存放特定格子的縮放比例
     private Map<Integer, Float> rotationMap = new HashMap<>(); // 存放特定格子的旋轉角度
