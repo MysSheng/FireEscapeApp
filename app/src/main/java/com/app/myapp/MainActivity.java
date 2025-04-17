@@ -237,8 +237,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         ////////// fp.user_guide(user_x, user_y);
 
         //關於GridMap的可視化
-        //Grid[][] escapeMap =fp.returnMap();
-        //Grid[][] escapeMap = fp.getGridMap();
         Grid[][] escapeMap = fp.test_one_level();
 
         ImageView imageView = findViewById(R.id.imageView);
@@ -280,48 +278,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //updateUser(29,73);
         //findUser(true);
 
-        Button button1 = findViewById(R.id.button1);
-        button1.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(now_scale>=1) {
-                    if(now_scale<=1.33f){
-                        setZoomScale(1f);
-                        now_x/=now_scale;
-                        now_y/=now_scale;
-                        now_scale=1f;
-                        gridMapView.post(() -> {
-                            setMoveOffset(now_scale, now_x, now_y);
-                        });
-                    }
-                    else {
-                        setZoomScale(now_scale/1.33f);
-                        now_scale/=1.33f;
-                        now_x/=1.33f;
-                        now_y/=1.33f;
-                        gridMapView.post(() -> {
-                            setMoveOffset(now_scale, now_x, now_y);
-                        });
-                    }
-                }
-            }
-        });
 
-        Button button2 = findViewById(R.id.button2);
-        button2.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(now_scale<=4) {
-                    setZoomScale(now_scale*1.33f);
-                    now_scale*=1.33f;
-                    now_x*=1.33f;
-                    now_y*=1.33f;
-                    gridMapView.post(() -> {
-                        setMoveOffset(now_scale, now_x, now_y);
-                    });
-                }
-            }
-        });
 
         Button button3 = findViewById(R.id.button3);
         button3.setOnClickListener(new View.OnClickListener() {
@@ -351,20 +308,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                 // 更新比例與平移（為了穩定性，可根據需要調整 now_x/now_y 的比例）
                 now_scale = newScale;
-                now_x *= scaleFactor;
-                now_y *= scaleFactor;
+                now_x *= newScale/now_scale;
+                now_y *= newScale/now_scale;
 
-
-                setZoomScale(now_scale);
-                //gridMapView.post(() -> {
-                //    setMoveOffset(now_scale, now_x, now_y);
-                //});
-
-                setMoveOffset(now_scale, now_x, now_y);
-
-
-                //setMoveOffset(now_scale, now_x, now_y);
+                setZoomScale(now_scale,new Runnable() {
+                    @Override
+                    public void run() {
+                    }
+                });
                 //setZoomScale(now_scale);
+                setMoveOffset(now_scale, now_x, now_y);
                 return true;
             }
             @Override
@@ -489,11 +442,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 now_y = target_offset_y;
             }
 
-            // 使用post確保UI更新在主線程執行
-            //gridMapView.post(() -> {
-            //    setMoveOffset(now_scale, now_x, now_y);
-            //});
-
             setMoveOffset(now_scale, now_x, now_y);
         });
     }
@@ -531,37 +479,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     now_scale = scale; // 確保 now_scale 與實際縮放一致
                     applyZoomScale(imageView, gridMapView, scale);
                     if (onComplete != null) onComplete.run();
-                }
-            }
-        });
-    }
-
-    private void setZoomScale(float scale) {
-        ImageView imageView = findViewById(R.id.imageView);
-        GridMapView gridMapView = findViewById(R.id.gridMapView);
-
-        // 如果已經初始化過，直接使用快取的尺寸
-        if (isZoomInitialized) {
-            applyZoomScale(imageView, gridMapView, scale);
-            return;
-        }
-
-        // 只註冊一次佈局監聽器
-        imageView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                // 移除監聽器避免重複觸發
-                imageView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-
-                if (imageView.getDrawable() != null) {
-                    // 快取尺寸資訊
-                    cachedImgWidth = imageView.getDrawable().getIntrinsicWidth();
-                    cachedImgHeight = imageView.getDrawable().getIntrinsicHeight();
-                    cachedViewWidth = imageView.getWidth();
-                    cachedViewHeight = imageView.getHeight();
-
-                    isZoomInitialized = true;
-                    applyZoomScale(imageView, gridMapView, scale);
                 }
             }
         });
@@ -607,53 +524,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             gridMapView.setLayoutParams(params);
         }
     }
-    /*private void setZoomScale(float scale) {
-        ImageView imageView = findViewById(R.id.imageView);
-        GridMapView gridMapView = findViewById(R.id.gridMapView);
-
-        // 設定 GridMap 預設大小等於圖片的大小
-        imageView.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-            if (imageView.getDrawable() != null) {
-                imgWidth = imageView.getDrawable().getIntrinsicWidth();
-                imgHeight = imageView.getDrawable().getIntrinsicHeight();
-                int viewWidth = imageView.getWidth();
-                int viewHeight = imageView.getHeight();
-                // 計算初始縮放比例，讓圖片完整顯示
-                float scaleX = (float) viewWidth / imgWidth;
-                float scaleY = (float) viewHeight / imgHeight;
-                float initScale = Math.min(scaleX, scaleY);
-                // 設定初始縮放
-                scaleFactor = initScale;
-                // 放大3倍
-                scaleFactor *= scale;
-                // 計算平移量，讓圖片居中顯示
-                float scaledWidth = imgWidth * scaleFactor;
-                float scaledHeight = imgHeight * scaleFactor;
-
-                // 計算最大可平移範圍
-                //maxPosX = Math.max(0, (scaledWidth - imageView.getWidth()) / 2);
-                //maxPosY = Math.max(0, (scaledHeight - imageView.getHeight()) / 2);
-
-                // 限制當前位置在合法範圍內
-                //posX = Math.max(-maxPosX, Math.min(maxPosX, posX));
-                //posY = Math.max(-maxPosY, Math.min(maxPosY, posY));
-
-
-
-                //float translateX = (viewWidth - scaledWidth) / 2;
-                //float translateY = (viewHeight - scaledHeight) / 2;
-                // 應用變換
-                //applyTransformation(imageView, gridMapView, translateX, translateY);
-                // 設定 GridMap 大小與圖片匹配
-                //gridMapView.setGridSize((int)(imgWidth * 1), (int)(imgHeight * 1));
-                gridMapView.setGridSize((int) scaledWidth, (int) scaledHeight);
-                // 調整 GridMapView 的大小
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams((int) scaledWidth, (int) scaledHeight);
-                gridMapView.setLayoutParams(params);
-            }
-        });
-
-    }*/
 
     // 在類別中新增成員變數
     private boolean isLayoutListenerSet = false;
@@ -768,76 +638,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         gridMapView.setTransformMatrix(reusableMatrix);
     }
 
-    /*private void setMoveOffset(float scale,float moveX,float moveY){
-        ImageView imageView = findViewById(R.id.imageView);
-        GridMapView gridMapView = findViewById(R.id.gridMapView);
-
-        // 設定 GridMap 預設大小等於圖片的大小
-        imageView.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-            if (imageView.getDrawable() != null) {
-                imgWidth = imageView.getDrawable().getIntrinsicWidth();
-                imgHeight = imageView.getDrawable().getIntrinsicHeight();
-                int viewWidth = imageView.getWidth();
-                int viewHeight = imageView.getHeight();
-                // 計算初始縮放比例，讓圖片完整顯示
-                float scaleX = (float) viewWidth / imgWidth;
-                float scaleY = (float) viewHeight / imgHeight;
-                float initScale = Math.min(scaleX, scaleY);
-                // 設定初始縮放
-                scaleFactor = initScale;
-                // 放大3倍
-                scaleFactor *= scale;
-                // 計算平移量，讓圖片居中顯示
-                float scaledWidth = imgWidth * scaleFactor;
-                float scaledHeight = imgHeight * scaleFactor;
-
-                // 計算最大可平移範圍
-                maxPosX = Math.max(0, (scaledWidth - imageView.getWidth()) / 2);
-                maxPosY = Math.max(0, (scaledHeight - imageView.getHeight()) / 2);
-
-                // 限制當前位置在合法範圍內
-                posX = Math.max(-maxPosX, Math.min(maxPosX, posX));
-                posY = Math.max(-maxPosY, Math.min(maxPosY, posY));
-
-                float translateX = (viewWidth - scaledWidth) / 2 + moveX;
-                float translateY = (viewHeight - scaledHeight) / 2 + moveY;
-                // 應用變換
-                applyTransformation(imageView, gridMapView, translateX, translateY);
-                // 設定 GridMap 大小與圖片匹配
-                //gridMapView.setGridSize((int)(imgWidth * 1), (int)(imgHeight * 1));
-                gridMapView.setGridSize((int) scaledWidth, (int) scaledHeight);
-                // 調整 GridMapView 的大小
-                FrameLayout.LayoutParams params = new FrameLayout.LayoutParams((int) scaledWidth, (int) scaledHeight);
-                gridMapView.setLayoutParams(params);
-            }
-        });
-
-    }
-
-    // 在類別中新增成員變數
-    private Matrix matrix = new Matrix();
-    private void applyTransformation(ImageView imageView, GridMapView gridMapView, float translateX, float translateY) {
-        matrix.reset();
-        // 應用縮放
-        matrix.postScale(scaleFactor, scaleFactor);
-        // 應用平移
-        matrix.postTranslate(translateX, translateY);
-        // 設定 ImageView 的矩陣
-        imageView.setImageMatrix(matrix);
-
-        // 設定 GridMapView 的矩陣
-        //gridMapView.setTransformMatrix(matrix);
-
-        // GridMapView 只應用平移
-        matrix.reset();
-        matrix.postTranslate(translateX, translateY);
-        gridMapView.setTransformMatrix(matrix);
-    }*/
-
     public void showPath(int x,int y,int lastDirection,Grid[][] escapeMap){
         GridMapView gridMapView = findViewById(R.id.gridMapView);
         if (escapeMap[x][y].getType() == Grid.ROAD) {
             int dir = escapeMap[x][y].getDirection();
+            gridMapView.setCellScale(y,x,1.1f);
             if (lastDirection == Grid.UP) {
                 if (dir == Grid.UP) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_d));
@@ -931,10 +736,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                 }
             } else if (lastDirection == Grid.UP_LEFT) {
+                gridMapView.setCellImage(y, x+1, getCachedBitmap(R.drawable.lu_rd_down));
+                gridMapView.setCellImage(y+1, x, getCachedBitmap(R.drawable.lu_rd_up));
                 if (dir == Grid.UP_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_rd));
-                    gridMapView.setCellImage(y, x+1, getCachedBitmap(R.drawable.lu_rd_down));
-                    gridMapView.setCellImage(y+1, x, getCachedBitmap(R.drawable.lu_rd_up));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                 } else if (dir == Grid.UP_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ru_rd));
@@ -956,13 +761,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                 }
             } else if (lastDirection == Grid.UP_RIGHT) {
+                gridMapView.setCellImage(y, x+1, getCachedBitmap(R.drawable.ld_ru_up));
+                gridMapView.setCellImage(y-1, x, getCachedBitmap(R.drawable.ld_ru_down));
                 if (dir == Grid.UP_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_ld));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                 } else if (dir == Grid.UP_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_ru));
-                    gridMapView.setCellImage(y, x-1, getCachedBitmap(R.drawable.ld_ru_down));
-                    gridMapView.setCellImage(y-1, x, getCachedBitmap(R.drawable.ld_ru_up));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                 } else if (dir == Grid.DOWN) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_d));
@@ -981,10 +786,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                 }
             } else if (lastDirection == Grid.DOWN_LEFT) {
+                gridMapView.setCellImage(y, x-1, getCachedBitmap(R.drawable.ld_ru_up));
+                gridMapView.setCellImage(y+1, x, getCachedBitmap(R.drawable.ld_ru_down));
                 if (dir == Grid.DOWN_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_ru));
-                    gridMapView.setCellImage(y, x-1, getCachedBitmap(R.drawable.ld_ru_up));
-                    gridMapView.setCellImage(y+1, x, getCachedBitmap(R.drawable.lu_rd_down));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                 } else if (dir == Grid.DOWN_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ru_rd));
@@ -1006,13 +811,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                 }
             } else if (lastDirection == Grid.DOWN_RIGHT) {
+                gridMapView.setCellImage(y, x-1, getCachedBitmap(R.drawable.lu_rd_up));
+                gridMapView.setCellImage(y-1, x, getCachedBitmap(R.drawable.lu_rd_down));
                 if (dir == Grid.DOWN_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_rd));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                 } else if (dir == Grid.DOWN_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_rd));
-                    gridMapView.setCellImage(y, x-1, getCachedBitmap(R.drawable.lu_rd_up));
-                    gridMapView.setCellImage(y-1, x, getCachedBitmap(R.drawable.lu_rd_down));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                 } else if (dir == Grid.UP) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_u));
@@ -1044,7 +849,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     //路徑UI
-    /*
     @Override
     protected void onResume() {
         super.onResume();
@@ -1062,11 +866,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
        sensorManager.registerListener(this,accelerometerSensor,SensorManager.SENSOR_DELAY_NORMAL);
        sensorManager.registerListener(this,magnetometerSensor,SensorManager.SENSOR_DELAY_NORMAL);
 
-
-        //getInitialOrientation(); // 獲取初始方向
-
     }
-    */
+
     @Override
     protected void onPause() {
         super.onPause();
@@ -1097,8 +898,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     public void onSensorChanged(SensorEvent event) {
 
-
         ImageView compassArrow = findViewById(R.id.compassArrow);
+        GridMapView gridMapView =findViewById(R.id.gridMapView);
 
         if(event.sensor == accelerometerSensor){
             System.arraycopy(event.values,0,lastAccelerometer,0,event.values.length);
@@ -1117,7 +918,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 
             // 平面圖的基準角度（上方對應的北方偏移角）
-            float baseOffsetAngle = 68.0f;
+            float baseOffsetAngle = 0f;
 
             // 計算調整後的角度，使其符合平面圖的方向
             float adjustedAzimuth = azimuthInDegree + baseOffsetAngle;
@@ -1140,51 +941,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             oppositeRotateAnimation.setFillAfter(true);
 
             compassArrow.startAnimation(rotateAnimation);
-            cellMap[user_x][user_y].startAnimation(oppositeRotateAnimation);
+            gridMapView.setCellRotation(user_y,user_x,azimuthInDegree);
 
             currentDegree = -azimuthInDegree;
             lastUpdateTime = System.currentTimeMillis();
         }
-        /*
-        //地磁偵測
-        final float alpha = 0.97f;
-        synchronized (this){
-            if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
-                mGravity[0] = alpha * mGravity[0] + (1-alpha)*event.values[0];
-                mGravity[1] = alpha * mGravity[1] + (1-alpha)*event.values[1];
-                mGravity[2] = alpha * mGravity[2] + (1-alpha)*event.values[2];
-            }
-
-            if(event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
-                mGeomagnetic[0] = alpha * mGeomagnetic[0] + (1-alpha)*event.values[0];
-                mGeomagnetic[1] = alpha * mGeomagnetic[1] + (1-alpha)*event.values[1];
-                mGeomagnetic[2] = alpha * mGeomagnetic[2] + (1-alpha)*event.values[2];
-            }
-
-            float R[] = new float[9];
-            float I[] = new float[9];
-            boolean success = SensorManager.getRotationMatrix(R,I,mGravity,mGeomagnetic);
-
-            if(success){
-                float orientation[] = new float[3];
-                SensorManager.getOrientation(R,orientation);
-                getInitialAzimuth = (float) Math.toDegrees(orientation[0]);
-                getInitialAzimuth = (getInitialAzimuth+360)*360;
-
-                Animation anim = new RotateAnimation(-currentAzimuth,-getInitialAzimuth,Animation.RELATIVE_TO_SELF,0.5f,Animation.RELATIVE_TO_SELF,0.5f);
-                currentAzimuth = getInitialAzimuth;
-
-                anim.setDuration(500);
-                anim.setRepeatCount(0);
-                anim.setFillAfter(true);
-
-                imageView.startAnimation(anim);
-            }
-        }*/
 
         //旋轉偵測
 
-        /*
+
         long currentTime = System.currentTimeMillis();
         if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
             if (isCalibrating) {
@@ -1204,9 +969,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                     // 累加校準次數
                     calibrationCount++;
-
-                    // 更新 UI
-                    //updateCalibrateButton(timeRemaining);
                 } else {  // 校準完成
                     // 計算平均值
                     gyroBiasTemp[0] /= calibrationCount;
@@ -1215,12 +977,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
                     // 複製到 gyroBias
                     System.arraycopy(gyroBiasTemp, 0, gyroBias, 0, gyroBiasTemp.length);
-
-                    // 更新 UI
-                    //binding.gyroBiasX.setText(String.format(Locale.getDefault(), "%.2f", gyroBias[0]));
-                    //binding.gyroBiasY.setText(String.format(Locale.getDefault(), "%.2f", gyroBias[1]));
-                    //binding.gyroBiasZ.setText(String.format(Locale.getDefault(), "%.2f", gyroBias[2]));
-                    //updateCalibrateButton();
 
                     // 重置校準狀態
                     isCalibrating = false;
@@ -1261,20 +1017,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 gyroRotation[1] += dy_deg;
                 gyroRotation[2] += dz_deg;
 
-                imageView.setRotation((float) gyroRotation[2]);
-                //imageView.setRotation(imageView.getRotation() + +(float) dz_deg);
-
-                cellMap[user_x][user_y].setRotation((float) -gyroRotation[2]);
-
-                // 更新 UI
-                //binding.gyroX.setText(String.format(Locale.getDefault(), "%.2f", gyroValues[0]));
-                //binding.gyroY.setText(String.format(Locale.getDefault(), "%.2f", gyroValues[1]));
-                //binding.gyroZ.setText(String.format(Locale.getDefault(), "%.2f", gyroValues[2]));
-
-                //updateProgressBar((int) gyroRotation[2]);
+                compassArrow.setRotation(compassArrow.getRotation() + +(float) dz_deg);
+                gridMapView.setCellRotation(user_y,user_x,gridMapView.getCellRotation(user_y,user_x) - (float) dz_deg);
             }
         }
-        */
+
 
     }
 
@@ -1351,39 +1098,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             StreamConfigurationMap map =
                     camChar.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             mPreviewSize = map.getOutputSizes(SurfaceTexture.class)[0];
-
-            // 檢查是否有人臉偵測功能
-            int[] iFaceDetModes = camChar.get(
-                    CameraCharacteristics.STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES);
-            if (iFaceDetModes == null) {
-                mbFaceDetAvailable = false;
-                Toast.makeText(MainActivity.this, "不支援人臉偵測", Toast.LENGTH_LONG)
-                        .show();
-            } else {
-                mbFaceDetAvailable = false;
-                for (int mode : iFaceDetModes) {
-                    if (mode == CameraMetadata.STATISTICS_FACE_DETECT_MODE_SIMPLE) {
-                        mbFaceDetAvailable = true;
-                        miFaceDetMode = CameraMetadata.STATISTICS_FACE_DETECT_MODE_SIMPLE;
-                        break;   // Find the desired mode, so stop searching.
-                    } else if (mode == CameraMetadata.STATISTICS_FACE_DETECT_MODE_FULL) {
-                        // This is a candidate mode, keep searching.
-                        mbFaceDetAvailable = true;
-                        miFaceDetMode = CameraMetadata.STATISTICS_FACE_DETECT_MODE_FULL;
-                    }
-                }
-            }
-
-            if (mbFaceDetAvailable) {
-                miMaxFaceCount = camChar.get(
-                        CameraCharacteristics.STATISTICS_INFO_MAX_FACE_COUNT);
-
-                Toast.makeText(MainActivity.this, "人臉偵測功能: " +
-                                String.valueOf(miFaceDetMode) +
-                                "\n人臉數最大值: " + String.valueOf(miMaxFaceCount),
-                        Toast.LENGTH_LONG)
-                        .show();
-            }
 
             // 啟動 camera
             if (ContextCompat.checkSelfPermission(MainActivity.this,

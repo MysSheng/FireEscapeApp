@@ -113,6 +113,13 @@ public class GridMapView extends FrameLayout {
         }
     }
 
+    public float getCellRotation(int col,int row){
+        if(isValid(col,row)) {
+            return gridImageViews[col][row].getRotation();
+        }
+        return 0;
+    }
+
     public void setCellAlpha(int col, int row, int alpha) {
         if (isValid(col, row)) {
             gridImageViews[col][row].setAlpha(Math.max(0, Math.min(255, alpha)) / 255f);

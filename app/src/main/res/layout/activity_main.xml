@@ -38,31 +38,12 @@
         app:layout_constraintEnd_toEndOf="@id/textureView"
         app:layout_constraintBottom_toBottomOf="parent">
 
-
-        <Button
-            android:id="@+id/button2"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginStart="350dp"
-            android:layout_marginTop="5dp"
-            android:background="@drawable/zoom_out"
-            android:scaleType="fitCenter" />
-
-        <Button
-            android:id="@+id/button1"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginStart="320dp"
-            android:layout_marginTop="5dp"
-            android:background="@drawable/zoom_in"
-            android:scaleType="fitCenter" />
-
         <Button
             android:id="@+id/button3"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginStart="350dp"
-            android:layout_marginTop="35dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="330dp"
+            android:layout_marginTop="25dp"
             android:background="@drawable/user_pos"
             android:scaleType="fitCenter" />
 
