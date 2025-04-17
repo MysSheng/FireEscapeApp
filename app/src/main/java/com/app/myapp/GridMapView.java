@@ -94,11 +94,7 @@ public class GridMapView extends FrameLayout {
         }
     }
 
-    public void setCellImage(int col, int row, Drawable drawable) {
-        if (isValid(col, row)) {
-            gridImageViews[col][row].setImageDrawable(drawable);
-        }
-    }
+
 
     public void setCellScale(int col, int row, float scale) {
         if (isValid(col, row)) {
@@ -177,15 +173,30 @@ public class GridMapView extends FrameLayout {
     public void cleanup() {
         for (int row = 0; row < gridRows; row++) {
             for (int col = 0; col < gridCols; col++) {
-                Drawable drawable = gridImageViews[col][row].getDrawable();
-                if (drawable instanceof BitmapDrawable) {
-                    Bitmap bitmap = ((BitmapDrawable) drawable).getBitmap();
-                    if (bitmap != null && !bitmap.isRecycled()) {
-                        bitmap.recycle();
-                    }
-                }
-                gridImageViews[col][row].setImageDrawable(null);
+                gridImageViews[col][row].setImageBitmap(null);
             }
         }
     }
+
+    public void clearCellImage(int col, int row) {
+        if (isValid(col, row)) {
+            Drawable drawable = gridImageViews[col][row].getDrawable();
+            if (drawable instanceof BitmapDrawable) {
+                Bitmap bmp = ((BitmapDrawable) drawable).getBitmap();
+                if (bmp != null && !bmp.isRecycled()) {
+                    bmp.recycle(); // 若是你自己 decode 的 bitmap 才需要
+                }
+            }
+            gridImageViews[col][row].setImageDrawable(null);
+        }
+    }
+
+    public void clearAllCells() {
+        for (int col = 0; col < gridImageViews.length; col++) {
+            for (int row = 0; row < gridImageViews[0].length; row++) {
+                clearCellImage(col, row);
+            }
+        }
+    }
+
 }
