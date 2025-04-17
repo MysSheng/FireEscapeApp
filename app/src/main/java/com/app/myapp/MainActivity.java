@@ -1,8 +1,11 @@
 package com.app.myapp;
 
+import static java.security.AccessController.getContext;
+
 import android.Manifest;
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -30,6 +33,7 @@ import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
 import android.support.constraint.ConstraintLayout;
 import android.support.v4.app.ActivityCompat;
@@ -64,7 +68,10 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
@@ -239,18 +246,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 
         // 縮小到原始大小
-        setZoomScale(1.0f*1.33f*1.33f*1.33f);
-        for(int i=0;i<100;i++){
-            for(int j=0;j<100;j++){
-                gridMapView.setGridVisibility(false);
+        //setZoomScale(1.0f*1.33f*1.33f*1.33f);
+        //gridMapView.setCellImage(user_y, user_x, BitmapFactory.decodeResource(getResources(),R.drawable.user_point));
+        //gridMapView.setCellScale(user_y, user_x, 2.5f);
+        setZoomScale(1.0f*1.33f*1.33f*1.33f, new Runnable() {
+            @Override
+            public void run() {
+                // 縮放完成後才執行定位
+                gridMapView.setCellImage(user_y, user_x, BitmapFactory.decodeResource(getResources(),R.drawable.user_point));
+                gridMapView.setCellScale(user_y, user_x, 2.5f);
+                findUser(true);
             }
-        }
-        gridMapView.setCellImage(user_y, user_x, BitmapFactory.decodeResource(getResources(),R.drawable.user_point));
-        gridMapView.setCellScale(user_y, user_x, 2.5f);
+        });
 
 
         findUser(true);
         //抓定開頭
+
         int dir=escapeMap[user_x][user_y].getDirection();
         if(dir==Grid.UP) showPath(user_x-1,user_y,Grid.UP,escapeMap);
         if(dir==Grid.DOWN) showPath(user_x+1,user_y,Grid.DOWN,escapeMap);
@@ -260,6 +272,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         if(dir==Grid.UP_RIGHT) showPath(user_x-1,user_y+1,Grid.UP_RIGHT,escapeMap);
         if(dir==Grid.DOWN_LEFT) showPath(user_x+1,user_y-1,Grid.DOWN_LEFT,escapeMap);
         if(dir==Grid.DOWN_RIGHT) showPath(user_x+1,user_y+1,Grid.DOWN_RIGHT,escapeMap);
+
+
         //連續更換位置測試
         //updateUser(85,85);
         //updateUser(3,3);
@@ -340,7 +354,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 now_x *= scaleFactor;
                 now_y *= scaleFactor;
 
+
+                setZoomScale(now_scale);
+                //gridMapView.post(() -> {
+                //    setMoveOffset(now_scale, now_x, now_y);
+                //});
+
                 setMoveOffset(now_scale, now_x, now_y);
+
+
+                //setMoveOffset(now_scale, now_x, now_y);
+                //setZoomScale(now_scale);
                 return true;
             }
             @Override
@@ -361,6 +385,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 scaleDetector.onTouchEvent(event); // 讓 ScaleGestureDetector 處理縮放手勢
+
+                // 確保縮放已初始化
+                if (!isZoomInitialized) return true;
+                // 限制更新頻率
+                if (System.currentTimeMillis() - lastUpdateTime < 16) { // ~60fps
+                    return true;
+                }
+                lastUpdateTime = System.currentTimeMillis();
 
                 // 當所有手指都放開後才清除 scaling 狀態
                 if ((event.getActionMasked() == MotionEvent.ACTION_UP ||
@@ -416,14 +448,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             // 清空地圖
             for (int i = 0; i < 100; i++) {
                 for (int j = 0; j < 100; j++) {
-                    gridMapView.setCellImage(i, j, null);
+                    //gridMapView.setCellImage(i, j, null);
                     gridMapView.setCellScale(i, j, 1f);
                 }
             }
 
             // 更新user位置
-            gridMapView.setCellImage(this.user_x, this.user_y,
-                    BitmapFactory.decodeResource(getResources(), R.drawable.user_point));
+            //gridMapView.setCellImage(this.user_x, this.user_y, BitmapFactory.decodeResource(getResources(), R.drawable.user_point));
             gridMapView.setCellScale(this.user_x, this.user_y, 4.5f);
 
             now_x = 0;
@@ -459,13 +490,124 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
 
             // 使用post確保UI更新在主線程執行
-            gridMapView.post(() -> {
-                setMoveOffset(now_scale, now_x, now_y);
-            });
+            //gridMapView.post(() -> {
+            //    setMoveOffset(now_scale, now_x, now_y);
+            //});
+
+            setMoveOffset(now_scale, now_x, now_y);
+        });
+    }
+
+    // 在類別中新增成員變數
+    private boolean isZoomInitialized = false;
+    private int cachedImgWidth = 0;
+    private int cachedImgHeight = 0;
+    private int cachedViewWidth = 0;
+    private int cachedViewHeight = 0;
+
+    // 修改 setZoomScale 方法，增加回調
+    private void setZoomScale(float scale, Runnable onComplete) {
+        ImageView imageView = findViewById(R.id.imageView);
+        GridMapView gridMapView = findViewById(R.id.gridMapView);
+
+        if (isZoomInitialized) {
+            applyZoomScale(imageView, gridMapView, scale);
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+
+        imageView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                imageView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+
+                if (imageView.getDrawable() != null) {
+                    cachedImgWidth = imageView.getDrawable().getIntrinsicWidth();
+                    cachedImgHeight = imageView.getDrawable().getIntrinsicHeight();
+                    cachedViewWidth = imageView.getWidth();
+                    cachedViewHeight = imageView.getHeight();
+
+                    isZoomInitialized = true;
+                    now_scale = scale; // 確保 now_scale 與實際縮放一致
+                    applyZoomScale(imageView, gridMapView, scale);
+                    if (onComplete != null) onComplete.run();
+                }
+            }
         });
     }
 
     private void setZoomScale(float scale) {
+        ImageView imageView = findViewById(R.id.imageView);
+        GridMapView gridMapView = findViewById(R.id.gridMapView);
+
+        // 如果已經初始化過，直接使用快取的尺寸
+        if (isZoomInitialized) {
+            applyZoomScale(imageView, gridMapView, scale);
+            return;
+        }
+
+        // 只註冊一次佈局監聽器
+        imageView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                // 移除監聽器避免重複觸發
+                imageView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+
+                if (imageView.getDrawable() != null) {
+                    // 快取尺寸資訊
+                    cachedImgWidth = imageView.getDrawable().getIntrinsicWidth();
+                    cachedImgHeight = imageView.getDrawable().getIntrinsicHeight();
+                    cachedViewWidth = imageView.getWidth();
+                    cachedViewHeight = imageView.getHeight();
+
+                    isZoomInitialized = true;
+                    applyZoomScale(imageView, gridMapView, scale);
+                }
+            }
+        });
+    }
+
+    private void applyZoomScale(ImageView imageView, GridMapView gridMapView, float scale) {
+        // 使用快取的尺寸計算
+        float initScale = Math.min(
+                (float) cachedViewWidth / cachedImgWidth,
+                (float) cachedViewHeight / cachedImgHeight
+        );
+
+        scaleFactor = initScale * scale;
+
+        // 計算縮放後尺寸
+        float scaledWidth = cachedImgWidth * scaleFactor;
+        float scaledHeight = cachedImgHeight * scaleFactor;
+
+        // 計算平移量（居中顯示）
+        float translateX = (cachedViewWidth - scaledWidth) / 2;
+        float translateY = (cachedViewHeight - scaledHeight) / 2;
+
+        // 更新最大平移範圍
+        maxPosX = Math.max(0, (scaledWidth - cachedViewWidth) / 2);
+        maxPosY = Math.max(0, (scaledHeight - cachedViewHeight) / 2);
+
+        // 限制當前位置
+        posX = Math.max(-maxPosX, Math.min(maxPosX, posX));
+        posY = Math.max(-maxPosY, Math.min(maxPosY, posY));
+
+        // 應用變換（使用重用 Matrix）
+        reusableMatrix.reset();
+        reusableMatrix.postScale(scaleFactor, scaleFactor);
+        reusableMatrix.postTranslate(translateX, translateY);
+        imageView.setImageMatrix(reusableMatrix);
+
+        // 更新 GridMapView 大小（只在尺寸變化超過1%時更新）
+        if (Math.abs(gridMapView.getWidth() - scaledWidth) / scaledWidth > 0.01 ||
+                Math.abs(gridMapView.getHeight() - scaledHeight) / scaledHeight > 0.01) {
+            gridMapView.setGridSize((int) scaledWidth, (int) scaledHeight);
+            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                    (int) scaledWidth, (int) scaledHeight);
+            gridMapView.setLayoutParams(params);
+        }
+    }
+    /*private void setZoomScale(float scale) {
         ImageView imageView = findViewById(R.id.imageView);
         GridMapView gridMapView = findViewById(R.id.gridMapView);
 
@@ -489,17 +631,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 float scaledHeight = imgHeight * scaleFactor;
 
                 // 計算最大可平移範圍
-                maxPosX = Math.max(0, (scaledWidth - imageView.getWidth()) / 2);
-                maxPosY = Math.max(0, (scaledHeight - imageView.getHeight()) / 2);
+                //maxPosX = Math.max(0, (scaledWidth - imageView.getWidth()) / 2);
+                //maxPosY = Math.max(0, (scaledHeight - imageView.getHeight()) / 2);
 
                 // 限制當前位置在合法範圍內
-                posX = Math.max(-maxPosX, Math.min(maxPosX, posX));
-                posY = Math.max(-maxPosY, Math.min(maxPosY, posY));
+                //posX = Math.max(-maxPosX, Math.min(maxPosX, posX));
+                //posY = Math.max(-maxPosY, Math.min(maxPosY, posY));
 
 
 
-                float translateX = (viewWidth - scaledWidth) / 2;
-                float translateY = (viewHeight - scaledHeight) / 2;
+                //float translateX = (viewWidth - scaledWidth) / 2;
+                //float translateY = (viewHeight - scaledHeight) / 2;
                 // 應用變換
                 //applyTransformation(imageView, gridMapView, translateX, translateY);
                 // 設定 GridMap 大小與圖片匹配
@@ -511,9 +653,122 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             }
         });
 
+    }*/
+
+    // 在類別中新增成員變數
+    private boolean isLayoutListenerSet = false;
+    private Matrix reusableMatrix = new Matrix(); // 重用 Matrix 物件
+
+    private void setMoveOffset(float scale, float moveX, float moveY) {
+        ImageView imageView = findViewById(R.id.imageView);
+        GridMapView gridMapView = findViewById(R.id.gridMapView);
+
+        if (!isLayoutListenerSet) {
+            isLayoutListenerSet = true;
+            imageView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override
+                public void onGlobalLayout() {
+                    // 移除監聽器避免重複註冊
+                    imageView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+
+                    // 原有完整邏輯
+                    if (imageView.getDrawable() != null) {
+                        imgWidth = imageView.getDrawable().getIntrinsicWidth();
+                        imgHeight = imageView.getDrawable().getIntrinsicHeight();
+                        int viewWidth = imageView.getWidth();
+                        int viewHeight = imageView.getHeight();
+
+                        // 計算初始縮放比例
+                        float scaleX = (float) viewWidth / imgWidth;
+                        float scaleY = (float) viewHeight / imgHeight;
+                        float initScale = Math.min(scaleX, scaleY);
+
+                        scaleFactor = initScale;
+                        scaleFactor *= scale;
+
+                        // 計算縮放後尺寸
+                        float scaledWidth = imgWidth * scaleFactor;
+                        float scaledHeight = imgHeight * scaleFactor;
+
+                        // 計算最大可平移範圍
+                        maxPosX = Math.max(0, (scaledWidth - imageView.getWidth()) / 2);
+                        maxPosY = Math.max(0, (scaledHeight - imageView.getHeight()) / 2);
+
+                        // 限制當前位置
+                        posX = Math.max(-maxPosX, Math.min(maxPosX, posX));
+                        posY = Math.max(-maxPosY, Math.min(maxPosY, posY));
+
+                        float translateX = (viewWidth - scaledWidth) / 2 + moveX;
+                        float translateY = (viewHeight - scaledHeight) / 2 + moveY;
+
+                        // 應用變換
+                        applyTransformation(imageView, gridMapView, translateX, translateY);
+
+                        // 設定 GridMap 大小
+                        gridMapView.setGridSize((int) scaledWidth, (int) scaledHeight);
+
+                        // 調整 GridMapView 大小
+                        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                                (int) scaledWidth, (int) scaledHeight);
+                        gridMapView.setLayoutParams(params);
+                    }
+                }
+            });
+        } else {
+            // 直接執行更新邏輯（優化路徑）
+            updateViewTransform(imageView, gridMapView, scale, moveX, moveY);
+        }
     }
 
-    private void setMoveOffset(float scale,float moveX,float moveY){
+    private void updateViewTransform(ImageView imageView, GridMapView gridMapView, float scale, float moveX, float moveY) {
+        if (imageView.getDrawable() != null) {
+            // 重用已計算的尺寸資訊
+            float scaledWidth = imgWidth * scaleFactor;
+            float scaledHeight = imgHeight * scaleFactor;
+            int viewWidth = imageView.getWidth();
+            int viewHeight = imageView.getHeight();
+
+            // 計算最大可平移範圍
+            maxPosX = Math.max(0, (scaledWidth - imageView.getWidth()) / 2);
+            maxPosY = Math.max(0, (scaledHeight - imageView.getHeight()) / 2);
+
+            // 限制當前位置
+            posX = Math.max(-maxPosX, Math.min(maxPosX, posX));
+            posY = Math.max(-maxPosY, Math.min(maxPosY, posY));
+
+            float translateX = (viewWidth - scaledWidth) / 2 + moveX;
+            float translateY = (viewHeight - scaledHeight) / 2 + moveY;
+
+            // 應用變換（使用重用 Matrix）
+            reusableMatrix.reset();
+            reusableMatrix.postScale(scaleFactor, scaleFactor);
+            reusableMatrix.postTranslate(translateX, translateY);
+            imageView.setImageMatrix(reusableMatrix);
+
+            // GridMapView 只應用平移
+            reusableMatrix.reset();
+            reusableMatrix.postTranslate(translateX, translateY);
+            gridMapView.setTransformMatrix(reusableMatrix);
+
+            // 注意：這裡不再重複設定 gridMapView 的尺寸和佈局參數，
+            // 因為在第一次初始化時已經設定，且尺寸不會頻繁變化
+        }
+    }
+
+    private void applyTransformation(ImageView imageView, GridMapView gridMapView, float translateX, float translateY) {
+        // 使用重用 Matrix 替代新建
+        reusableMatrix.reset();
+        reusableMatrix.postScale(scaleFactor, scaleFactor);
+        reusableMatrix.postTranslate(translateX, translateY);
+        imageView.setImageMatrix(reusableMatrix);
+
+        // GridMapView 只應用平移
+        reusableMatrix.reset();
+        reusableMatrix.postTranslate(translateX, translateY);
+        gridMapView.setTransformMatrix(reusableMatrix);
+    }
+
+    /*private void setMoveOffset(float scale,float moveX,float moveY){
         ImageView imageView = findViewById(R.id.imageView);
         GridMapView gridMapView = findViewById(R.id.gridMapView);
 
@@ -559,8 +814,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     }
 
+    // 在類別中新增成員變數
+    private Matrix matrix = new Matrix();
     private void applyTransformation(ImageView imageView, GridMapView gridMapView, float translateX, float translateY) {
-        Matrix matrix = new Matrix();
+        matrix.reset();
         // 應用縮放
         matrix.postScale(scaleFactor, scaleFactor);
         // 應用平移
@@ -572,214 +829,218 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //gridMapView.setTransformMatrix(matrix);
 
         // GridMapView 只應用平移
-        Matrix translationMatrix = new Matrix();
-        translationMatrix.postTranslate(translateX, translateY);
-        gridMapView.setTransformMatrix(translationMatrix);
-    }
+        matrix.reset();
+        matrix.postTranslate(translateX, translateY);
+        gridMapView.setTransformMatrix(matrix);
+    }*/
 
     public void showPath(int x,int y,int lastDirection,Grid[][] escapeMap){
         GridMapView gridMapView = findViewById(R.id.gridMapView);
         if (escapeMap[x][y].getType() == Grid.ROAD) {
             int dir = escapeMap[x][y].getDirection();
-
             if (lastDirection == Grid.UP) {
                 if (dir == Grid.UP) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.u_d));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_d));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                 } else if (dir == Grid.DOWN_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ld_d));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_d));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                 } else if (dir == Grid.DOWN_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.d_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.d_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                 } else if (dir == Grid.LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.l_d));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_d));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                 } else if (dir == Grid.RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.d_r));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.d_r));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                 } else if (dir == Grid.UP_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_d));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_d));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                 } else if (dir == Grid.UP_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.d_ru));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.d_ru));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                 }
             } else if (lastDirection == Grid.DOWN) {
                 if (dir == Grid.DOWN) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.u_d));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_d));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                 } else if (dir == Grid.UP_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_u));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_u));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                 } else if (dir == Grid.UP_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.u_ru));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_ru));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                 } else if (dir == Grid.LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.l_u));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_u));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                 } else if (dir == Grid.RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.u_r));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_r));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                 } else if (dir == Grid.DOWN_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ld_u));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_u));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                 } else if (dir == Grid.DOWN_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.u_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                 }
             } else if (lastDirection == Grid.LEFT) {
                 if (dir == Grid.LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.l_r));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_r));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                 } else if (dir == Grid.UP_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ru_r));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ru_r));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                 } else if (dir == Grid.DOWN_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.r_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.r_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                 } else if (dir == Grid.UP) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.u_r));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_r));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                 } else if (dir == Grid.DOWN) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.d_r));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.d_r));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                 } else if (dir == Grid.UP_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_r));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_r));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                 } else if (dir == Grid.DOWN_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ld_r));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_r));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                 }
             } else if (lastDirection == Grid.RIGHT) {
                 if (dir == Grid.RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.l_r));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_r));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                 } else if (dir == Grid.UP_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_l));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_l));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                 } else if (dir == Grid.DOWN_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.l_ld));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_ld));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                 } else if (dir == Grid.UP) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.l_u));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_u));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                 } else if (dir == Grid.DOWN) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.l_d));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_d));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                 } else if (dir == Grid.UP_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.l_ru));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_ru));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                 } else if (dir == Grid.DOWN_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.l_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                 }
             } else if (lastDirection == Grid.UP_LEFT) {
                 if (dir == Grid.UP_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_rd));
-                    gridMapView.setCellImage(y, x+1, BitmapFactory.decodeResource(getResources(), R.drawable.lu_rd_down));
-                    gridMapView.setCellImage(y+1, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_rd_up));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_rd));
+                    gridMapView.setCellImage(y, x+1, getCachedBitmap(R.drawable.lu_rd_down));
+                    gridMapView.setCellImage(y+1, x, getCachedBitmap(R.drawable.lu_rd_up));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                 } else if (dir == Grid.UP_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ru_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ru_rd));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                 } else if (dir == Grid.DOWN) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.d_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.d_rd));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                 } else if (dir == Grid.RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.r_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.r_rd));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                 } else if (dir == Grid.DOWN_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ld_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_rd));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                 } else if (dir == Grid.UP) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.u_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_rd));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                 } else if (dir == Grid.LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.l_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_rd));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                 }
-
             } else if (lastDirection == Grid.UP_RIGHT) {
                 if (dir == Grid.UP_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_ld));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_ld));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                 } else if (dir == Grid.UP_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ld_ru));
-                    gridMapView.setCellImage(y, x-1, BitmapFactory.decodeResource(getResources(), R.drawable.ld_ru_down));
-                    gridMapView.setCellImage(y-1, x, BitmapFactory.decodeResource(getResources(), R.drawable.ld_ru_up));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_ru));
+                    gridMapView.setCellImage(y, x-1, getCachedBitmap(R.drawable.ld_ru_down));
+                    gridMapView.setCellImage(y-1, x, getCachedBitmap(R.drawable.ld_ru_up));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                 } else if (dir == Grid.DOWN) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ld_d));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_d));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                 } else if (dir == Grid.LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.l_ld));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_ld));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                 } else if (dir == Grid.DOWN_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ld_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                 } else if (dir == Grid.UP) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ld_u));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_u));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                 } else if (dir == Grid.RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ld_r));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_r));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                 }
-
             } else if (lastDirection == Grid.DOWN_LEFT) {
                 if (dir == Grid.DOWN_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ld_ru));
-                    gridMapView.setCellImage(y, x-1, BitmapFactory.decodeResource(getResources(), R.drawable.ld_ru_up));
-                    gridMapView.setCellImage(y+1, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_rd_down));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_ru));
+                    gridMapView.setCellImage(y, x-1, getCachedBitmap(R.drawable.ld_ru_up));
+                    gridMapView.setCellImage(y+1, x, getCachedBitmap(R.drawable.lu_rd_down));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                 } else if (dir == Grid.DOWN_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ru_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ru_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                 } else if (dir == Grid.UP) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.u_ru));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_ru));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                 } else if (dir == Grid.RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.ru_r));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ru_r));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                 } else if (dir == Grid.UP_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_ru));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_ru));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                 } else if (dir == Grid.DOWN) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.d_ru));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.d_ru));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                 } else if (dir == Grid.LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.l_ru));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_ru));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                 }
-
             } else if (lastDirection == Grid.DOWN_RIGHT) {
                 if (dir == Grid.DOWN_LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_rd));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_rd));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                 } else if (dir == Grid.DOWN_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_rd));
-                    gridMapView.setCellImage(y, x-1, BitmapFactory.decodeResource(getResources(), R.drawable.lu_rd_up));
-                    gridMapView.setCellImage(y-1, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_rd_down));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_rd));
+                    gridMapView.setCellImage(y, x-1, getCachedBitmap(R.drawable.lu_rd_up));
+                    gridMapView.setCellImage(y-1, x, getCachedBitmap(R.drawable.lu_rd_down));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                 } else if (dir == Grid.UP) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_u));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_u));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                 } else if (dir == Grid.LEFT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_l));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_l));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                 } else if (dir == Grid.UP_RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_ru));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_ru));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                 } else if (dir == Grid.DOWN) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_d));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_d));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                 } else if (dir == Grid.RIGHT) {
-                    gridMapView.setCellImage(y, x, BitmapFactory.decodeResource(getResources(), R.drawable.lu_r));
+                    gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_r));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                 }
             }
-
         }
+    }
+
+    private Map<Integer, Bitmap> bitmapCache = new HashMap<>();
+    private Bitmap getCachedBitmap(@DrawableRes int resId) {
+        if (!bitmapCache.containsKey(resId)) {
+            Bitmap bmp = GridMapView.decodeSampledBitmapFromResource(getResources(), resId, 8, 8);
+            bitmapCache.put(resId, bmp);
+        }
+        return bitmapCache.get(resId);
     }
 
     //路徑UI
