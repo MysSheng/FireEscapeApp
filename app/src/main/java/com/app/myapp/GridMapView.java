@@ -199,4 +199,9 @@ public class GridMapView extends FrameLayout {
         }
     }
 
+    public void gridToFront(int col,int row,float value){
+        //gridImageViews[col][row].bringToFront();
+        gridImageViews[col][row].setZ(value);
+    }
+
 }
