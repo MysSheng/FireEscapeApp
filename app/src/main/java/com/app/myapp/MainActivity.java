@@ -165,10 +165,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private final int rowCount = 100;
     private final int columnCount = 100;
     private ImageView[][] cellMap = new ImageView[rowCount][columnCount]; // 儲存 TextView 參照
-    private int user_x = 18;
-    private int user_y = 20;
+    private int user_x = 33;
+    private int user_y = 13;
     private float scaleFactor = 1.0f;
     private int imgWidth, imgHeight; // 儲存圖片的原始大小
+    // 初步建構一個大室內空間
+    private  CSIE_1F csie1F = new CSIE_1F();
+    private Grid[][] grid = csie1F.getGrid();
+    private final int fire_x = 24, fire_y = 45;
+    private Planner fp = new Planner(grid, user_x, user_y, fire_x, fire_y);
 
     //自動偵測位置
     private Handler handler = new Handler();
@@ -215,16 +220,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 
 
-        // 初步建構一個大室內空間
-        CSIE_1F csie1F = new CSIE_1F();
-        Grid[][] grid = csie1F.getGrid();
-        final int fire_x = 24, fire_y = 45;
-        Planner fp = new Planner(grid, user_x, user_y, fire_x, fire_y);
+
         fp.setRunSpeed(2);
         fp.do_one_level();
-
         //關於GridMap的可視化
-        Grid[][] escapeMap = fp.test_one_level();
+        Grid[][] escapeMap = fp.user_guide(user_x,user_y);
 
         ImageView imageView = findViewById(R.id.imageView);
         GridMapView gridMapView = findViewById(R.id.gridMapView);
@@ -242,20 +242,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 }
             });
         });
-        /*setZoomScale(1.0f*1.33f*1.33f*1.33f, new Runnable() {
-            @Override
-            public void run() {
-                // 縮放完成後才執行定位
-                gridMapView.setCellImage(user_y, user_x, BitmapFactory.decodeResource(getResources(),R.drawable.user_point));
-                gridMapView.setCellScale(user_y, user_x, 3.0f);
-                findUser(true);
-            }
-        });*/
 
         findUser(true);
         showPath(escapeMap);
+
         //連續更換位置測試
-        updateUser(85,85,escapeMap);
+        //updateUser(85,85);
 
         Button button3 = findViewById(R.id.button3);
         button3.setOnClickListener(new View.OnClickListener() {
@@ -361,7 +353,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     int y = Integer.parseInt(editTextY.getText().toString());
                     user_x = x;
                     user_y = y;
-                    updateUser(user_x,user_y,escapeMap);
+                    updateUser(user_x,user_y);
 
                 } catch (NumberFormatException e) {
                     Toast.makeText(MainActivity.this, "請輸入有效的數字", Toast.LENGTH_SHORT).show();
@@ -380,12 +372,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float maxPosX, maxPosY; // 最大可平移距離
     private ScaleGestureDetector scaleDetector;
 
-    private void updateUser(int x, int y,Grid[][] escapeMap) {
+    private void updateUser(int x, int y) {
         GridMapView gridMapView = findViewById(R.id.gridMapView);
         user_x = x;
         user_y = y;
         now_x = 0;
         now_y = 0;
+        Grid[][] escapeMap=fp.user_guide(user_x,user_y);
         gridMapView.post(() -> {
             // 清空地圖
             for (int i = 0; i < 100; i++) {
