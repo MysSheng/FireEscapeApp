@@ -10,9 +10,15 @@ import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.BitmapShader;
 import android.graphics.Camera;
+import android.graphics.Canvas;
 import android.graphics.ImageFormat;
+import android.graphics.Paint;
+import android.graphics.Rect;
+import android.graphics.Shader;
 import android.graphics.SurfaceTexture;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.hardware.camera2.CameraAccessException;
@@ -33,13 +39,20 @@ import android.net.Uri;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.support.annotation.DrawableRes;
-import android.support.annotation.NonNull;
-import android.support.constraint.ConstraintLayout;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
+import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+//import android.support.annotation.DrawableRes;
+//import android.support.annotation.NonNull;
+//import android.support.constraint.ConstraintLayout;
+//import android.support.v4.app.ActivityCompat;
+//import android.support.v4.content.ContextCompat;
+//import android.support.v7.app.AlertDialog;
+//import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Size;
@@ -229,6 +242,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         ImageView imageView = findViewById(R.id.imageView);
         GridMapView gridMapView = findViewById(R.id.gridMapView);
 
+        //float currentPitchAngle=30f,delta=20f;
+        //imageView.setRotationX(Math.min(60, Math.max(0, currentPitchAngle + delta / 10)));
+        //applyPitch(+30); // 模擬提升角度
+
 
         // 確保初始化完成後再執行 UI 操作
         findViewById(R.id.gridMapView).post(() -> {
@@ -376,6 +393,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     private boolean isScaling = false;
 
