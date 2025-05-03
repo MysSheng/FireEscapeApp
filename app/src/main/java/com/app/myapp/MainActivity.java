@@ -165,8 +165,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private final int rowCount = 100;
     private final int columnCount = 100;
     private ImageView[][] cellMap = new ImageView[rowCount][columnCount]; // 儲存 TextView 參照
-    private int user_x = 33;
-    private int user_y = 13;
+    private int user_x = 52;
+    private int user_y = 60;
     private float scaleFactor = 1.0f;
     private int imgWidth, imgHeight; // 儲存圖片的原始大小
     // 初步建構一個大室內空間
@@ -391,16 +391,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         now_x = 0;
         now_y = 0;
         Grid[][] escapeMap=fp.user_guide(user_x,user_y);
-        for(int i=0;i<100;i++){
-            for(int j=0;j<100;j++){
-                if(escapeMap[user_x][user_y].getDirection()==-1) {
-                    Log.d("MyDebug","no" );
-                }
-                else{
-                    Log.d("MyDeBug","yes");
-                }
-            }
-        }
         gridMapView.post(() -> {
             // 清空地圖
             for (int i = 0; i < 100; i++) {
@@ -652,8 +642,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         gridMapView.setTransformMatrix(reusableMatrix);
     }
 
+    //test code
+    private String dirToText(int dir){
+        if(dir==Grid.UP) return "↑";
+        if(dir==Grid.DOWN) return "↓";
+        if(dir==Grid.LEFT) return "←";
+        if(dir==Grid.RIGHT) return "→";
+        if(dir==Grid.UP_LEFT) return "↖";
+        if(dir==Grid.UP_RIGHT) return "↗";
+        if(dir==Grid.DOWN_LEFT) return "↙";
+        if(dir==Grid.DOWN_RIGHT) return "↘";
+        return "x"; // 預設情況或其他未定義的方向
+    }
+
+
     public void showPath(Grid[][] escapeMap){
         int dir=escapeMap[user_x][user_y].getDirection();
+        Log.d("yaju",dirToText(dir));
         if(dir==Grid.UP) showPath(user_x-1,user_y,escapeMap);
         if(dir==Grid.DOWN) showPath(user_x+1,user_y,escapeMap);
         if(dir==Grid.LEFT) showPath(user_x,user_y-1,escapeMap);
@@ -668,10 +673,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         GridMapView gridMapView = findViewById(R.id.gridMapView);
         gridMapView.gridToFront(y,x,1.2f);
         int dir=escapeMap[x][y].getDirection();
+        Log.d("yaju",dirToText(dir));
         gridMapView.setCellScale(y,x,1.7f);
         if (dir == Grid.UP) {
             gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.start_u));
             showPath(x - 1, y, Grid.UP, escapeMap);
+        } else if (dir == Grid.DOWN){
+            gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.start_d));
+            showPath(x + 1, y, Grid.DOWN, escapeMap);
         } else if (dir == Grid.DOWN_LEFT) {
             gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.start_ld));
             showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
@@ -901,6 +910,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         gridMapView.gridToFront(y,x,1.0f);
         if (escapeMap[x][y].getType() == Grid.ROAD) {
             int dir = escapeMap[x][y].getDirection();
+            Log.d("yaju",dirToText(dir));
             gridMapView.setCellScale(y,x,1.7f);
             if (lastDirection == Grid.UP) {
                 if (dir == Grid.UP) {
