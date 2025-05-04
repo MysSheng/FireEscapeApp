@@ -54,5 +54,5 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
 
     /* ── OpenCV utilities ─────────────────────────────── */
-    implementation files('libs/openCV-release-4.11.0.aar')
+    implementation "org.opencv:opencv:4.10.0"
 }
