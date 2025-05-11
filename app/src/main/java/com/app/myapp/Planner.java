@@ -9,8 +9,8 @@ public class Planner {
     private final int COLS;
     private static Room[] rooms = new Room[100];
     private static int rooms_count =0;
-    private final int user_loc_x;
-    private final int user_loc_y;
+    private int user_loc_x;
+    private int user_loc_y;
     private final int fire_loc_x;
     private final int fire_loc_y;
     private double runSpeed =0;
@@ -402,7 +402,7 @@ public class Planner {
      * 2.if there are more than one local exit, choose the one with higher deadline
      * 3.print each grid along the edge
      */
-    public void user_guide(int user_x,int user_y){
+    /*public void user_guide(int user_x,int user_y){
         for(int i=0;i<ROWS;i++){
             for(int j=0;j<COLS;j++){
                 System.out.print(GridMap[i][j].getDeadLine()+" ");
@@ -462,7 +462,7 @@ public class Planner {
             System.out.println("user:"+"("+user_x+","+user_y+")");
             print_path();
         }
-    }
+    }*/
 
     public double count_deadline(Grid end,Grid start,Grid[][] map){
         double deadline=0;
@@ -570,11 +570,16 @@ public class Planner {
 
     public Grid[][] test_one_level(){
         Grid[][] grids= new Grid[ROWS][COLS];
+        double maxDeadline=0;
         HashMap<Grid,Grid[][]> navigator=global_nav;
         for (Map.Entry<Grid, Grid[][]> entry : navigator.entrySet()) {
             Grid key = entry.getKey();          // 取得鍵 (Grid)
             Grid[][] value = entry.getValue();  // 取得值 (Grid[][])
-            return value;
+            //挑選對使用者來說deadline最大的一張地圖
+            if(value[user_loc_x][user_loc_y].getDeadLine()>=maxDeadline){
+                maxDeadline = value[user_loc_x][user_loc_y].getDeadLine();
+                grids = value;
+            }
         }
         return grids;
     }
@@ -629,5 +634,26 @@ public class Planner {
                 }
             }
         }
+    }
+
+    public void updateUser(int x,int y){
+        user_loc_x=x;
+        user_loc_y=y;
+    }
+
+    public Grid[][] user_guide(int x,int y){
+        Grid[][] grids= new Grid[ROWS][COLS];
+        double maxDeadline=0;
+        HashMap<Grid,Grid[][]> navigator=global_nav;
+        for (Map.Entry<Grid, Grid[][]> entry : navigator.entrySet()) {
+            Grid key = entry.getKey();          // 取得鍵 (Grid)
+            Grid[][] value = entry.getValue();  // 取得值 (Grid[][])
+            //挑選對使用者來說deadline最大的一張地圖
+            if(value[x][y].getDeadLine()>=maxDeadline){
+                maxDeadline = value[x][y].getDeadLine();
+                grids = value;
+            }
+        }
+        return grids;
     }
 }
