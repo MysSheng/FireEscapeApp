@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId "com.app.myapp"
-        minSdk 21
+        minSdk 23
         targetSdk 34
         versionCode 1
         versionName "1.0"
@@ -55,4 +55,8 @@ dependencies {
 
     /* ── OpenCV utilities ─────────────────────────────── */
     implementation "org.opencv:opencv:4.10.0"
+
+    /* ── Google utilities ─────────────────────────────── */
+    implementation "com.google.code.gson:gson:2.10.1"
+    implementation "com.google.guava:guava:33.1.0-android"
 }
