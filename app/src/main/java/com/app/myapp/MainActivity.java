@@ -15,6 +15,7 @@ import android.graphics.Camera;
 import android.graphics.Canvas;
 import android.graphics.ImageFormat;
 import android.graphics.Paint;
+import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.Shader;
 import android.graphics.SurfaceTexture;
@@ -32,6 +33,7 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.Face;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.icu.text.Transliterator;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaPlayer;
@@ -41,11 +43,13 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
-import androidx.constraintlayout.widget.ConstraintLayout;
+//import androidx.compose.ui.graphics.BlendMode;
+//import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.LifecycleOwner;
 //import android.support.annotation.DrawableRes;
 //import android.support.annotation.NonNull;
 //import android.support.constraint.ConstraintLayout;
@@ -57,6 +61,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
+import android.view.Choreographer;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -99,6 +104,24 @@ import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.widget.ImageView;
 
+import com.google.android.filament.Engine;
+import com.google.android.filament.Renderer;
+import com.google.android.filament.Scene;
+
+import io.github.sceneview.SceneView;
+import io.github.sceneview.collision.CollisionSystem;
+import io.github.sceneview.gesture.CameraGestureDetector;
+import io.github.sceneview.gesture.GestureDetector;
+import io.github.sceneview.loaders.EnvironmentLoader;
+import io.github.sceneview.loaders.MaterialLoader;
+import io.github.sceneview.loaders.ModelLoader;
+import io.github.sceneview.node.CameraNode;
+import io.github.sceneview.node.CylinderNode;
+import io.github.sceneview.node.LightNode;
+import io.github.sceneview.node.Node;
+
+import io.github.sceneview.SceneView;
+import io.github.sceneview.node.ModelNode;
 
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
@@ -212,11 +235,36 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
 
+
     @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+
+
+        SceneView sceneView = findViewById(R.id.sceneView);
+        ARViewer.INSTANCE.setupSceneView(this, sceneView, (LifecycleOwner) this);
+        ARViewer.INSTANCE.setModelTransform(-30f,60f,20f);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         //陀螺儀測試
         // 初始化SensorManager
@@ -384,6 +432,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     user_x = x;
                     user_y = y;
                     updateUser(user_x,user_y);
+                    ARViewer.INSTANCE.logCurrentRotation();
 
                 } catch (NumberFormatException e) {
                     Toast.makeText(MainActivity.this, "請輸入有效的數字", Toast.LENGTH_SHORT).show();
