@@ -14,6 +14,7 @@ import android.graphics.BitmapShader;
 import android.graphics.Canvas;
 import android.graphics.ImageFormat;
 import android.graphics.Paint;
+import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.Shader;
 import android.graphics.SurfaceTexture;
@@ -31,6 +32,7 @@ import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.Face;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.icu.text.Transliterator;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaPlayer;
@@ -40,6 +42,10 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
+
+//import androidx.compose.ui.graphics.BlendMode;
+//import androidx.constraintlayout.widget.ConstraintLayout;
+
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
@@ -49,10 +55,12 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.constraintlayout.widget.ConstraintLayout;
+
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.LifecycleOwner;
 //import android.support.annotation.DrawableRes;
 //import android.support.annotation.NonNull;
 //import android.support.constraint.ConstraintLayout;
@@ -66,6 +74,7 @@ import android.util.Pair;
 import android.util.Size;
 import android.util.SizeF;
 import android.util.SparseIntArray;
+import android.view.Choreographer;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -108,12 +117,33 @@ import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.widget.ImageView;
 
+
+import com.google.android.filament.Engine;
+import com.google.android.filament.Renderer;
+import com.google.android.filament.Scene;
+
+import io.github.sceneview.SceneView;
+import io.github.sceneview.collision.CollisionSystem;
+import io.github.sceneview.gesture.CameraGestureDetector;
+import io.github.sceneview.gesture.GestureDetector;
+import io.github.sceneview.loaders.EnvironmentLoader;
+import io.github.sceneview.loaders.MaterialLoader;
+import io.github.sceneview.loaders.ModelLoader;
+import io.github.sceneview.node.CameraNode;
+import io.github.sceneview.node.CylinderNode;
+import io.github.sceneview.node.LightNode;
+import io.github.sceneview.node.Node;
+
+import io.github.sceneview.SceneView;
+import io.github.sceneview.node.ModelNode;
+
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+
 
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
@@ -229,6 +259,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
 
+
     @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -255,6 +286,30 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         Log.e("CamInit", "camera failed", e);
                     }
                 }, ContextCompat.getMainExecutor(this));
+
+
+
+
+        SceneView sceneView = findViewById(R.id.sceneView);
+        ARViewer.INSTANCE.setupSceneView(this, sceneView, (LifecycleOwner) this);
+        ARViewer.INSTANCE.setModelTransform(-30f,60f,20f);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
         //陀螺儀測試
@@ -418,13 +473,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             @Override
             public void onClick(View v) {
                 try {
-                    ivpClient.captureBurst(5, 120)
-                            .thenAccept(point -> {
-                                Log.d("POSE", "x="+point.x+"  y="+point.y);
-                                user_x = Math.round(point.x);
-                                user_y = Math.round(point.y);
-                                updateUser(user_x,user_y);
-                            });
+
+                    int x = Integer.parseInt(editTextX.getText().toString());
+                    int y = Integer.parseInt(editTextY.getText().toString());
+//                     user_x = x;
+//                     user_y = y;
+//                     updateUser(user_x,user_y);
+//                     ARViewer.INSTANCE.logCurrentRotation();
+
+
+//                     ivpClient.captureBurst(5, 120)
+//                             .thenAccept(point -> {
+//                                 Log.d("POSE", "x="+point.x+"  y="+point.y);
+//                                 user_x = Math.round(point.x);
+//                                 user_y = Math.round(point.y);
+//                                 updateUser(user_x,user_y);
+//                             });
+
                 } catch (NumberFormatException e) {
                     Toast.makeText(MainActivity.this, "請輸入有效的數字", Toast.LENGTH_SHORT).show();
                 }

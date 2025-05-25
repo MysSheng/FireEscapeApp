@@ -27,6 +27,15 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
+    <io.github.sceneview.SceneView
+        android:id="@+id/sceneView"
+        android:layout_width="300dp"
+        android:layout_height="200dp"
+        android:layout_marginTop="70dp"
+        app:layout_constraintTop_toTopOf="@id/textureView"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
     <FrameLayout
         android:id="@+id/imageContainer"
         android:layout_width="380dp"
@@ -58,7 +67,8 @@
         <com.app.myapp.GridMapView
             android:id="@+id/gridMapView"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent"/>
     </FrameLayout>
 
     <EditText

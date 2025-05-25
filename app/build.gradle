@@ -1,15 +1,17 @@
 plugins {
     id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    //id 'org.jetbrains.kotlin.android'
 }
 
 android {
     namespace "com.app.myapp"
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.app.myapp"
         minSdk 33
-        targetSdk 34
+        targetSdk 35
         versionCode 1
         versionName "1.0"
 
@@ -29,9 +31,17 @@ android {
         sourceCompatibility JavaVersion.VERSION_17  // AGP 8 requires JDK 17
         targetCompatibility JavaVersion.VERSION_21
     }
+    kotlinOptions {
+        jvmTarget = '21'
+    }
+    //kotlinOptions {
+    //    jvmTarget = '21'
+    //}
 }
 
 dependencies {
+    // Sceneview for 3D capabilities
+    implementation("io.github.sceneview:sceneview:2.3.0")
     /* ── Core AndroidX stack ───────────────────────────── */
     implementation 'androidx.core:core-ktx:1.13.0'          // handy Kotlin extensions
     implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -47,6 +57,10 @@ dependencies {
     /* ── ARCore & OBJ loader ───────────────────────────── */
     implementation 'com.google.ar:core:1.44.0'              // latest stable (was 1.17.0)
     implementation 'de.javagl:obj:0.3.0'
+    implementation 'androidx.compose.ui:ui-graphics-android:1.8.2'
+    //implementation 'androidx.core:core-ktx:1.16.0'
+    //implementation 'androidx.compose.ui:ui-graphics-android:1.8.2'
+    //implementation 'androidx.core:core-ktx:1.16.0'
 
     /* ── Unit / instrumentation tests ──────────────────── */
     testImplementation       'junit:junit:4.13.2'
