@@ -11,7 +11,6 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapShader;
-import android.graphics.Camera;
 import android.graphics.Canvas;
 import android.graphics.ImageFormat;
 import android.graphics.Paint;
@@ -41,6 +40,14 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
+import androidx.camera.core.Camera;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ResolutionInfo;
+import androidx.camera.core.resolutionselector.ResolutionSelector;
+import androidx.camera.core.resolutionselector.ResolutionStrategy;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -55,7 +62,9 @@ import androidx.appcompat.app.AppCompatActivity;
 //import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.Pair;
 import android.util.Size;
+import android.util.SizeF;
 import android.util.SparseIntArray;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -99,6 +108,12 @@ import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.widget.ImageView;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+
+import org.opencv.android.OpenCVLoader;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
 
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
@@ -158,8 +173,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 @Override
                 public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int i, int i1) {
                     // 檢查是否取得camera的使用權限
-                    if (askForPermissions())
-                        openCamera();
+                    if (askForPermissions());
+                        // openCamera();
                 }
 
                 @Override
@@ -187,6 +202,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Grid[][] grid = csie1F.getGrid();
     private final int fire_x = 24, fire_y = 45;
     private Planner fp = new Planner(grid, user_x, user_y, fire_x, fire_y);
+    // variables for IVP
+    private IVP_Client ivpClient;
 
     //自動偵測位置
     private Handler handler = new Handler();
@@ -217,6 +234,28 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        if (!OpenCVLoader.initDebug()) {
+            Log.e(TAG, "OpenCV init FAILED");      // fall back to OpenCV Manager or abort
+        } else {
+            Log.d(TAG, "OpenCV init OK");
+        }
+
+        // wait for the camera to start, anc setup ivpClient when init success.
+        PreviewView previewView = findViewById(R.id.textureView);
+        ListenableFuture<Pair<ImageCapture, Mat>> camFuture =
+                startCamera(previewView);
+        camFuture.addListener(() -> {
+                    try {
+                        Pair<ImageCapture, Mat> result = camFuture.get();   // already finished here
+                        ImageCapture imageCap = result.first;
+                        Mat camMat            = result.second;
+
+                        ivpClient = new IVP_Client(this, imageCap, camMat);
+                    } catch (Exception e) {
+                        Log.e("CamInit", "camera failed", e);
+                    }
+                }, ContextCompat.getMainExecutor(this));
+
 
         //陀螺儀測試
         // 初始化SensorManager
@@ -228,8 +267,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         magnetometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         //旋轉測試
         //startOrientationChangeListener();
-        mTextureView = findViewById(R.id.textureView);
-        mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
+//        mTextureView = findViewById(R.id.textureView);
+        // mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
 
 
 
@@ -379,12 +418,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             @Override
             public void onClick(View v) {
                 try {
-                    int x = Integer.parseInt(editTextX.getText().toString());
-                    int y = Integer.parseInt(editTextY.getText().toString());
-                    user_x = x;
-                    user_y = y;
-                    updateUser(user_x,user_y);
-
+                    ivpClient.captureBurst(5, 120)
+                            .thenAccept(point -> {
+                                Log.d("POSE", "x="+point.x+"  y="+point.y);
+                                user_x = Math.round(point.x);
+                                user_y = Math.round(point.y);
+                                updateUser(user_x,user_y);
+                            });
                 } catch (NumberFormatException e) {
                     Toast.makeText(MainActivity.this, "請輸入有效的數字", Toast.LENGTH_SHORT).show();
                 }
@@ -417,7 +457,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float maxPosX, maxPosY; // 最大可平移距離
     private ScaleGestureDetector scaleDetector;
     private void updateUser(int x, int y) {
-        GridMapView gridMapView = findViewById(R.id.gridMapView);
+        GridMapView gridMapView = findViewById(R.id.gridMapView); // x, y要記得除100並取整
         user_x = x;
         user_y = y;
         now_x = 0;
@@ -1325,10 +1365,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         // 如果TextureView已經可以使用，就檢查Camera的使用權限
         // 然後開啟Camera
-        if (mTextureView.isAvailable()) {
-            if (askForPermissions())
-                openCamera();
-        }
+//        if (mTextureView.isAvailable()) {
+//            if (askForPermissions()) ;
+//                // openCamera();
+//        }
 
         sensorManager.registerListener(this, gyroscope, SensorManager.SENSOR_DELAY_NORMAL);
 
@@ -1554,130 +1594,164 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         return true;
     }
 
-    private void openCamera() {
-        // 取得 CameraManager
-        CameraManager camMgr = (CameraManager) getSystemService(CAMERA_SERVICE);
 
-        try{
-            // 取得相機背後的 camera
-            String cameraId = camMgr.getCameraIdList()[0];
-            CameraCharacteristics camChar =
-                    camMgr.getCameraCharacteristics(cameraId);
+    private ListenableFuture<Pair<ImageCapture, Mat>> startCamera(PreviewView previewView) {
+        SettableFuture<Pair<ImageCapture, Mat>> future = SettableFuture.create();
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture =
+                ProcessCameraProvider.getInstance(this);
 
-            // 取得解析度
-            StreamConfigurationMap map =
-                    camChar.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-            mPreviewSize = map.getOutputSizes(SurfaceTexture.class)[0];
+        cameraProviderFuture.addListener(() -> {
+            try {
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                CameraSelector cameraSelector = new CameraSelector.Builder()
+                        .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                        .build();
+                String cameraId = getCameraId(CameraSelector.LENS_FACING_BACK);
 
-            // 啟動 camera
-            if (ContextCompat.checkSelfPermission(MainActivity.this,
-                    Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
-                camMgr.openCamera(cameraId, mCameraStateCallback, null);
-        }
-        catch(CameraAccessException e) {
-            e.printStackTrace();
-        }
+                CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+                CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
+
+                Rect activeArray = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+                SizeF sensorSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
+                float[] focalLengths = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+
+                int fullWidth = activeArray.width();
+                int fullHeight = activeArray.height();
+
+                Log.d("Sensor", "Sensor size: " + sensorSize + " | Active array: " + fullWidth + "x" + fullHeight);
+
+                int maxW = 1000;
+                int maxH = 1000;
+
+                // Calculate scale to fit within 1000x1000 while maintaining aspect ratio
+                float scale = Math.min((float) maxW / fullWidth, (float) maxH / fullHeight);
+                int scaledWidth = Math.round(fullWidth * scale);
+                int scaledHeight = Math.round(fullHeight * scale);
+
+                Size preferredSize = new Size(scaledWidth, scaledHeight);
+                Log.d("AutoPreferredSize", "Scaled preferred size: " + preferredSize.getWidth() + "x" + preferredSize.getHeight());
+
+                // Build ResolutionSelector
+                ResolutionSelector resolutionSelector = new ResolutionSelector.Builder()
+                        .setResolutionStrategy(
+                                new ResolutionStrategy(
+                                        preferredSize,
+                                        ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER
+                                )
+                        )
+                        .build();
+
+                // Set up the preview use case
+                PreviewView preview = new PreviewView(this);
+                androidx.camera.core.Preview cameraPreview = new androidx.camera.core.Preview.Builder()
+                        .build();
+
+                cameraPreview.setSurfaceProvider(previewView.getSurfaceProvider());
+
+                // Configure ImageCapture for 640x480 resolution
+                ImageCapture imageCapture = new ImageCapture.Builder()
+                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                        .setResolutionSelector(resolutionSelector)
+                        .build();
+
+                // Bind use cases to the lifecycle
+                Camera camera = cameraProvider.bindToLifecycle(
+                        this, cameraSelector, cameraPreview, imageCapture
+                );
+                ResolutionInfo info = imageCapture.getResolutionInfo();
+                Size actualSize = info.getResolution();
+                Log.d("FinalResolution", "Selected resolution: " + actualSize.getWidth() + "x" + actualSize.getHeight());
+                Mat cameraMatrix = computeCameraMatrix(cameraId, actualSize);
+
+                future.set(new Pair<>(imageCapture, cameraMatrix));
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                future.setException(e);
+            }
+        }, ContextCompat.getMainExecutor(this));
+
+        return future;
     }
 
-    private CameraDevice.StateCallback mCameraStateCallback =
-            new CameraDevice.StateCallback() {
-                @Override
-                public void onOpened(@NonNull CameraDevice cameraDevice) {
-                    mCameraDevice = cameraDevice;
-                    startPreview();
-                }
-
-                @Override
-                public void onDisconnected(@NonNull CameraDevice cameraDevice) {
-                    Toast.makeText(MainActivity.this, "無法使用camera", Toast.LENGTH_LONG)
-                            .show();
-                }
-
-                @Override
-                public void onError(@NonNull CameraDevice cameraDevice, int i) {
-                    Toast.makeText(MainActivity.this, "Camera開啟錯誤", Toast.LENGTH_LONG)
-                            .show();
-                }
-            };
-
-    // Camera的CaptureSession狀態改變時執行
-    private CameraCaptureSession.StateCallback mCameraCaptureSessionCallback =
-            new CameraCaptureSession.StateCallback() {
-                @Override
-                public void onConfigured(
-                        @NonNull CameraCaptureSession cameraCaptureSession) {
-                    closeAllCameraCaptureSession();
-
-                    // 記下這個capture session，使用完畢要刪除
-                    mCameraPreviewCaptureSession = cameraCaptureSession;
-
-                    mPreviewBuilder.set(
-                            CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
-                    mPreviewBuilder.set(
-                            CaptureRequest.STATISTICS_FACE_DETECT_MODE, miFaceDetMode);
-
-                    HandlerThread backgroundThread =
-                            new HandlerThread("CameraPreview");
-                    backgroundThread.start();
-                    Handler backgroundHandler =
-                            new Handler(backgroundThread.getLooper());
-
-                    try {
-                        mCameraPreviewCaptureSession.setRepeatingRequest(
-                                mPreviewBuilder.build(), null, backgroundHandler);
-                    } catch (CameraAccessException e) {
-                        e.printStackTrace();
-                    }
-                }
-
-                @Override
-                public void onConfigureFailed(
-                        @NonNull CameraCaptureSession cameraCaptureSession) {
-                    Toast.makeText(MainActivity.this,
-                            "Camera預覽錯誤", Toast.LENGTH_LONG)
-                            .show();
-                }
-            };
-
-    private void startPreview() {
-        // 從TextureView取得SurfaceTexture
-        SurfaceTexture surfaceTexture = mTextureView.getSurfaceTexture();
-
-        surfaceTexture.setDefaultBufferSize(mPreviewSize.getWidth(),
-                mPreviewSize.getHeight());
-
-        // 依照TextureView的解析度建立一個 surface 給camera使用
-        Surface surface = new Surface(surfaceTexture);
-
-        // 設定camera的CaptureRequest和CaptureSession
+    private String getCameraId(int lensFacing) {
+        CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         try {
-            mPreviewBuilder =
-                    mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-        } catch (CameraAccessException e){
-            e.printStackTrace();
-        }
-
-        mPreviewBuilder.addTarget(surface);
-
-        try {
-            mCameraDevice.createCaptureSession(Arrays.asList(surface),
-                    mCameraCaptureSessionCallback, null);
+            for (String id : manager.getCameraIdList()) {
+                CameraCharacteristics characteristics = manager.getCameraCharacteristics(id);
+                Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
+                if (facing != null && facing == lensFacing) {
+                    return id;
+                }
+            }
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
+        return null;
     }
 
-    // 建立新的Camera Capture Session之前
-    // 呼叫這個方法，清除舊的Camera Capture Session
-    private void closeAllCameraCaptureSession() {
-        if (mCameraPreviewCaptureSession != null) {
-            mCameraPreviewCaptureSession.close();
-            mCameraPreviewCaptureSession = null;
-        }
+    private Mat computeCameraMatrix(String cameraId, Size actualSize) {
+        CameraManager manager = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
+        Mat cameraMatrix = new Mat(3, 3, CvType.CV_64F);
+        try {
+            CameraCharacteristics characteristics = manager.getCameraCharacteristics(cameraId);
 
-        if (mCameraTakePicCaptureSession != null) {
-            mCameraTakePicCaptureSession.close();
-            mCameraTakePicCaptureSession = null;
+            float[] focalLengths = characteristics.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+            SizeF sensorSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE);
+            Rect activeArray = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+
+            int targetWidth = actualSize.getWidth();
+            int targetHeight = actualSize.getHeight();
+
+            double fx, fy, cx, cy;
+            // Use intrinsic calibration if available.
+            float[] intrinsics = characteristics.get(CameraCharacteristics.LENS_INTRINSIC_CALIBRATION);
+            if (intrinsics != null && intrinsics.length >= 5) {
+                float calibFx = intrinsics[0];
+                float calibFy = intrinsics[1];
+                float calibCx = intrinsics[2];
+                float calibCy = intrinsics[3];
+
+                float scaleX = (float) targetWidth / activeArray.width();
+                float scaleY = (float) targetHeight / activeArray.height();
+
+                fx = calibFx * scaleX;
+                fy = calibFy * scaleY;
+                cx = calibCx * scaleX;
+                cy = calibCy * scaleY;
+            } else if (focalLengths != null && focalLengths.length > 0 && sensorSize != null) {
+                // Fallback: compute from focal length and sensor size.
+                float focalLength = focalLengths[0];
+                float sensorWidth = sensorSize.getWidth();
+                float sensorHeight = sensorSize.getHeight();
+
+                fx = (focalLength * targetWidth) / sensorWidth;
+                fy = (focalLength * targetHeight) / sensorHeight;
+                cx = targetWidth / 2.0;
+                cy = targetHeight / 2.0;
+            } else {
+                Log.e("CameraMatrix", "Focal length or sensor size not available.");
+                return null;
+            }
+
+            // Fill in the camera matrix.
+            cameraMatrix.put(0, 0, fx);
+            cameraMatrix.put(0, 1, 0);
+            cameraMatrix.put(0, 2, cx);
+            cameraMatrix.put(1, 0, 0);
+            cameraMatrix.put(1, 1, fy);
+            cameraMatrix.put(1, 2, cy);
+            cameraMatrix.put(2, 0, 0);
+            cameraMatrix.put(2, 1, 0);
+            cameraMatrix.put(2, 2, 1);
+
+            Log.d("CameraMatrix", String.format("Camera Matrix: \n[[%.2f, 0, %.2f], [0, %.2f, %.2f], [0, 0, 1]]", fx, cx, fy, cy));
+            return cameraMatrix;
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+            return null;
         }
     }
+
+
 }
