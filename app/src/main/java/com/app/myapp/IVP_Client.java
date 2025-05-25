@@ -62,8 +62,10 @@ import org.opencv.core.KeyPoint;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfDouble;
 import org.opencv.core.MatOfKeyPoint;
+import org.opencv.features2d.AKAZE;
 import org.opencv.features2d.Features2d;
 import org.opencv.features2d.ORB;
+import org.opencv.imgproc.CLAHE;
 import org.opencv.imgproc.Imgproc;
 
 import java.io.ByteArrayInputStream;
@@ -223,22 +225,28 @@ class DefaultCallback implements CaptureCallback {
         Mat mat = new Mat();
         this.pending = result;
         Utils.bitmapToMat(bestImage, mat);
+        Mat gray = new Mat();
+        Imgproc.cvtColor(mat, gray, Imgproc.COLOR_BGR2GRAY);
+        CLAHE clahe = Imgproc.createCLAHE(2.0, new org.opencv.core.Size(8, 8));
+        Mat eq = new Mat();
+        clahe.apply(gray, eq);
 
         // Create ORB feature detector
-        ORB orb = ORB.create();
+        AKAZE akaze = AKAZE.create();
 
         // Detect keypoints and compute descriptors
-        MatOfKeyPoint keyPoints = new MatOfKeyPoint();
-        Mat descriptors = new Mat();
-        orb.detect(mat, keyPoints);
-        orb.compute(mat, keyPoints, descriptors);
+        MatOfKeyPoint kpts = new MatOfKeyPoint();
+        Mat descriptors  = new Mat();
+
+        akaze.detect(eq, kpts);
+        akaze.compute(eq, kpts, descriptors);
 
         // Send keypoints and descriptors to server
-        sendKeypointsToServer(keyPoints, descriptors, cameraMatrix);
+        sendKeypointsToServer(kpts, descriptors, cameraMatrix);
 
         // Release resources
         mat.release();
-        keyPoints.release();
+        kpts.release();
         descriptors.release();
     }
 
@@ -294,7 +302,7 @@ class DefaultCallback implements CaptureCallback {
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     private void sendDataToServer(final String jsonData) {
         new Thread(() -> {
-            String SERVER_IP = "10.145.183.33";
+            String SERVER_IP = "10.180.202.32";
             int SERVER_PORT = 34567;
             try (Socket socket = new Socket()) {
                 // optional: set a timeout so we don’t block forever
