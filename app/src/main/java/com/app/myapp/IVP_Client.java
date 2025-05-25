@@ -8,6 +8,8 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
+import android.graphics.PointF;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -24,6 +26,7 @@ import android.hardware.camera2.CameraManager;
 import android.util.SizeF;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
@@ -49,6 +52,8 @@ import androidx.lifecycle.LifecycleOwner;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.gson.Gson;
 
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.Core;
@@ -61,18 +66,22 @@ import org.opencv.features2d.Features2d;
 import org.opencv.features2d.ORB;
 import org.opencv.imgproc.Imgproc;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -80,6 +89,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 public class IVP_Client {
@@ -107,7 +117,8 @@ public class IVP_Client {
     }
 
     /** Public API to trigger the capture. */
-    public void captureBurst(int numImages, long delayMillis) {
+    public CompletableFuture<PointF> captureBurst(int numImages, long delayMillis) {
+        CompletableFuture<PointF> result = new CompletableFuture<>();
         List<Bitmap> burstImages = new ArrayList<>();
 
         final Runnable[] r = new Runnable[1];
@@ -157,7 +168,7 @@ public class IVP_Client {
                         }
                     }
                     if (best != null) {
-                        callback.onImageCaptured(best);
+                        callback.onImageCaptured(best, result);
                     } else {
                         callback.onError(new RuntimeException("No frames in burst"));
                     }
@@ -166,6 +177,7 @@ public class IVP_Client {
         };
 
         handler.post(r[0]);
+        return result;
     }
 
     private Bitmap rotateBitmap(Bitmap bitmap, int rotationDegrees) {
@@ -200,14 +212,16 @@ public class IVP_Client {
 
 class DefaultCallback implements CaptureCallback {
     private final Mat cameraMatrix;
+    private CompletableFuture<PointF> pending;
 
     public DefaultCallback(Mat cameraMatrix) {
         this.cameraMatrix = cameraMatrix;
     }
 
     @Override
-    public void onImageCaptured(Bitmap bestImage) {
+    public void onImageCaptured(Bitmap bestImage, CompletableFuture<PointF> result) {
         Mat mat = new Mat();
+        this.pending = result;
         Utils.bitmapToMat(bestImage, mat);
 
         // Create ORB feature detector
@@ -277,33 +291,38 @@ class DefaultCallback implements CaptureCallback {
         }
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     private void sendDataToServer(final String jsonData) {
         new Thread(() -> {
-            try {
-                String SERVER_IP = "10.136.94.100";
-                int SERVER_PORT = 34567;
-                // Create socket and connect to server
-                Socket socket = new Socket(SERVER_IP, SERVER_PORT);
-                OutputStream outputStream = socket.getOutputStream();
-                DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
+            String SERVER_IP = "10.145.183.33";
+            int SERVER_PORT = 34567;
+            try (Socket socket = new Socket()) {
+                // optional: set a timeout so we don’t block forever
+                socket.connect(new InetSocketAddress(SERVER_IP, SERVER_PORT), 5_000);
+                socket.setSoTimeout(5_000);   // read-timeout
 
-                // Compress JSON data using Gzip
-                byte[] compressedData = compressData(jsonData);
-                Log.d("OpenCV", "Compressed data size: " + compressedData.length + " bytes");
+                DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+                DataInputStream in  = new DataInputStream(socket.getInputStream());
 
-                // Send the length of the compressed data first
-                dataOutputStream.writeInt(compressedData.length);
+                /* ---- SEND ---------------------------------------------------- */
+                byte[] compressed = compressData(jsonData);
+                out.writeInt(compressed.length);
+                out.write(compressed);
+                out.flush();
 
-                // Send compressed data
-                dataOutputStream.write(compressedData);
-                dataOutputStream.flush();
+                /* ---- RECEIVE ------------------------------------------------- */
+                int len = in.readInt();
+                byte[] gz = in.readNBytes(len);
+                JSONObject reply = new JSONObject(
+                        new String(decompressData(gz), StandardCharsets.UTF_8));
 
-                // Close socket
-                dataOutputStream.close();
-                socket.close();
-                Log.d("OpenCV", "Data successfully sent to server.");
+                double x = reply.getDouble("x");
+                double y = reply.getDouble("y");
+
+                /* ---- HANDLE REPLY ON UI THREAD ------------------------------ */
+                new Handler(Looper.getMainLooper()).post(() -> this.onResultReady(x, y));
             } catch (Exception e) {
-                Log.e("OpenCV", "Failed to send data: " + e.getMessage());
+                Log.e("IVP", "Socket error", e);
             }
         }).start();
     }
@@ -314,6 +333,18 @@ class DefaultCallback implements CaptureCallback {
         gzipOutputStream.write(jsonData.getBytes("UTF-8"));
         gzipOutputStream.close();
         return byteArrayOutputStream.toByteArray();
+    }
+
+    private static byte[] decompressData(byte[] gz) throws IOException {
+        try (ByteArrayInputStream bin = new ByteArrayInputStream(gz);
+             GZIPInputStream gin = new GZIPInputStream(bin);
+             ByteArrayOutputStream bout = new ByteArrayOutputStream()) {
+
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = gin.read(buf)) != -1) bout.write(buf, 0, n);
+            return bout.toByteArray();
+        }
     }
 
     // Datatype Definitions in order for the code to run properly
@@ -351,5 +382,12 @@ class DefaultCallback implements CaptureCallback {
     @Override
     public void onError(Throwable t) {
         Log.d("IVP Error", t.toString());
+    }
+
+    @Override public void onResultReady(double x, double y) {
+        if (pending != null) {
+            pending.complete(new PointF((float) x, (float) y));
+            pending = null;
+        }
     }
 }

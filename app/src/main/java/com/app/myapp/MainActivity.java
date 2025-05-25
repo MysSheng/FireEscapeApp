@@ -256,6 +256,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     }
                 }, ContextCompat.getMainExecutor(this));
 
+
         //陀螺儀測試
         // 初始化SensorManager
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -417,12 +418,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             @Override
             public void onClick(View v) {
                 try {
-                    int x = Integer.parseInt(editTextX.getText().toString());
-                    int y = Integer.parseInt(editTextY.getText().toString());
-                    user_x = x;
-                    user_y = y;
-                    updateUser(user_x,user_y);
-
+                    ivpClient.captureBurst(5, 120)
+                            .thenAccept(point -> {
+                                Log.d("POSE", "x="+point.x+"  y="+point.y);
+                                user_x = Math.round(point.x);
+                                user_y = Math.round(point.y);
+                                updateUser(user_x,user_y);
+                            });
                 } catch (NumberFormatException e) {
                     Toast.makeText(MainActivity.this, "請輸入有效的數字", Toast.LENGTH_SHORT).show();
                 }
@@ -455,7 +457,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float maxPosX, maxPosY; // 最大可平移距離
     private ScaleGestureDetector scaleDetector;
     private void updateUser(int x, int y) {
-        GridMapView gridMapView = findViewById(R.id.gridMapView);
+        GridMapView gridMapView = findViewById(R.id.gridMapView); // x, y要記得除100並取整
         user_x = x;
         user_y = y;
         now_x = 0;
