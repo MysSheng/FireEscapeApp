@@ -522,7 +522,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float maxPosX, maxPosY; // 最大可平移距離
     private ScaleGestureDetector scaleDetector;
     private void updateUser(int x, int y) {
-        GridMapView gridMapView = findViewById(R.id.gridMapView); // x, y要記得除100並取整
+        GridMapView gridMapView = findViewById(R.id.gridMapView);
         user_x = x;
         user_y = y;
         now_x = 0;
