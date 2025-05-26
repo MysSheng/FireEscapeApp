@@ -113,7 +113,7 @@ public class IVP_Client {
                       ImageCapture imageCapture,
                       Mat cameraMatrix) {
         this.imageCapture = imageCapture;
-        this.executor = ContextCompat.getMainExecutor(ctx);
+        this.executor = Executors.newSingleThreadExecutor();
         this.handler = new Handler(Looper.getMainLooper());
         this.callback = new DefaultCallback(cameraMatrix);
     }

@@ -117,6 +117,13 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import android.graphics.Color;
 import android.os.Bundle;
@@ -251,6 +258,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Planner fp = new Planner(grid, user_x, user_y, fire_x, fire_y);
     // variables for IVP
     private IVP_Client ivpClient;
+    HandlerThread fuseThread;
+    Handler mainH ;
+    Handler fuseH ;
+
 
     // =============================================== Wifi指紋 & PDR定位 ========================================
     private WifiManager wifiManager;
@@ -344,11 +355,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // ==================================== IVP ==============================================
         if (!OpenCVLoader.initDebug()) {
             Log.e(TAG, "OpenCV init FAILED");      // fall back to OpenCV Manager or abort
         } else {
             Log.d(TAG, "OpenCV init OK");
         }
+
 
         // wait for the camera to start, anc setup ivpClient when init success.
         PreviewView previewView = findViewById(R.id.textureView);
@@ -365,6 +379,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         Log.e("CamInit", "camera failed", e);
                     }
                 }, ContextCompat.getMainExecutor(this));
+        startIVPLoop();
 
         // ==================================== WiFi 定位 & PDR 定位 ==============================================
         wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
@@ -384,9 +399,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         registerSensors();
 
         // =============================================================================================
-
-
-
+        // =================================== fusion thread setup ==================================================
+        HandlerThread fuseThread = new HandlerThread("FusionThread",
+                android.os.Process.THREAD_PRIORITY_DEFAULT);
+        fuseThread.start();
+        mainH = new Handler(Looper.getMainLooper()); // 也可另開 HandlerThread
+        fuseH = new Handler(fuseThread.getLooper());
+        fuseH.post(fuseTask);
 
         SceneView sceneView = findViewById(R.id.sceneView);
         ARViewer.INSTANCE.setupSceneView(this, sceneView, (LifecycleOwner) this);
@@ -561,13 +580,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 //                     ARViewer.INSTANCE.logCurrentRotation();
 
 
-//                     ivpClient.captureBurst(5, 120)
-//                             .thenAccept(point -> {
-//                                 Log.d("POSE", "x="+point.x+"  y="+point.y);
-//                                 user_x = Math.round(point.x);
-//                                 user_y = Math.round(point.y);
-//                                 updateUser(user_x,user_y);
-//                             });
+                     ivpClient.captureBurst(5, 120)
+                             .thenAccept(point -> {
+                                 Log.d("POSE", "x="+point.x+"  y="+point.y);
+                                 user_x = Math.round(point.x);
+                                 user_y = Math.round(point.y);
+                             });
 
                 } catch (NumberFormatException e) {
                     Toast.makeText(MainActivity.this, "請輸入有效的數字", Toast.LENGTH_SHORT).show();
@@ -860,7 +878,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     public void showPath(Grid[][] escapeMap){
         int dir=escapeMap[user_x][user_y].getDirection();
-        Log.d("yaju",dirToText(dir));
+        // Log.d("yaju",dirToText(dir));
         if(dir==Grid.UP) showPath(user_x-1,user_y,escapeMap);
         if(dir==Grid.DOWN) showPath(user_x+1,user_y,escapeMap);
         if(dir==Grid.LEFT) showPath(user_x,user_y-1,escapeMap);
@@ -875,7 +893,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         GridMapView gridMapView = findViewById(R.id.gridMapView);
         gridMapView.gridToFront(y,x,1.2f);
         int dir=escapeMap[x][y].getDirection();
-        Log.d("yaju",dirToText(dir));
+        // Log.d("yaju",dirToText(dir));
         gridMapView.setCellScale(y,x,1.7f);
         if (dir == Grid.UP) {
             gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.start_u));
@@ -1112,7 +1130,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         gridMapView.gridToFront(y,x,1.0f);
         if (escapeMap[x][y].getType() == Grid.ROAD) {
             int dir = escapeMap[x][y].getDirection();
-            Log.d("yaju",dirToText(dir));
+            // Log.d("yaju",dirToText(dir));
             gridMapView.setCellScale(y,x,1.7f);
             if (lastDirection == Grid.UP) {
                 if (dir == Grid.UP) {
@@ -2048,6 +2066,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         startScanLoop();
     }
 
+    volatile int wifiGridX = -1, wifiGridY = -1;
+    volatile long wifiTs   = 0;
     private void predict(float[] inputRssi) {
         if (tflite == null) {
             Toast.makeText(this, "Model not loaded", Toast.LENGTH_SHORT).show();
@@ -2066,9 +2086,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // runOnUiThread(() -> Toast.makeText(this, "x = " + x + "y = " + y, Toast.LENGTH_SHORT).show());
 
         // 將 0~57 m 映射到 0~99 的格點
-        wifi_gridx = Math.max(0, Math.min(99, Math.round((x / 57f) * 99)));
-        wifi_gridy = Math.max(0, Math.min(99, Math.round((y / 57f) * 99)));
+//        wifi_gridx = Math.max(0, Math.min(99, Math.round((x / 57f) * 99)));
+//        wifi_gridy = Math.max(0, Math.min(99, Math.round((y / 57f) * 99)));
 
+        // thread safe version for later fusion
+        wifiGridX = Math.max(0, Math.min(99, Math.round((x / 57f) * 99)));
+        wifiGridY = Math.max(0, Math.min(99, Math.round((y / 57f) * 99)));
+        wifiTs    = System.currentTimeMillis();
     }
 
     private final BroadcastReceiver wifiScanReceiver = new BroadcastReceiver() {
@@ -2133,6 +2157,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         // 移除所有 handler 任務，防止掃描繼續
         handler.removeCallbacksAndMessages(null);
+        ivpScheduler.shutdownNow();
+        fuseThread.quitSafely();
+        unregisterReceiver(wifiScanReceiver);
+        unregisterSensors();
     }
 
 
@@ -2218,7 +2246,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             if (amplitude > PEAK_VALLEY_THRESHOLD && Math.abs(peakTimestamp - valleyTimestamp) > STEP_INTERVAL_THRESHOLD && peakValue > 10 && valleyValue < 9.5) {
                 stepCount++;
 
-                stepInfoTextView.setText("");
+                // stepInfoTextView.setText("");
 
                 // Weinberg 步長估算公式
                 stepLength = 0.4f * (float) Math.pow(amplitude, 0.25);
@@ -2241,6 +2269,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     // 更新 x, y 座標
+    volatile int pdrGridX  = -1;
+    volatile int pdrGridY  = -1;
+    volatile long pdrTs =  0;
     private void updatePosition() {
         double radian = Math.toRadians(azimuth);
         pdr_x += stepLength * Math.sin(radian);
@@ -2248,20 +2279,101 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // 限制 x 和 y 在 0~57m 範圍內
         pdr_x = Math.max(0, Math.min(pdr_x, 57f));
         pdr_y = Math.max(0, Math.min(pdr_y, 57f));
-        updatePositionFused();
+
+        // thread safe version for later fusion
+        pdrGridX = Math.round((pdr_x / 57f) * 99);
+        pdrGridY = Math.round((pdr_y / 57f) * 99);
+        pdrTs    = System.currentTimeMillis();
     }
 
-    private void updatePositionFused() {
-        int fused_gridx, fused_gridy;
-        if (wifi_gridx > 0 && wifi_gridy > 0) {
-            fused_gridx =(int) (0.8 * pdr_gridx + 0.2 * wifi_gridx);
-            fused_gridy =(int) (0.8 * pdr_gridy + 0.2 * wifi_gridy);
-        } else {
-            fused_gridx = pdr_gridx;
-            fused_gridy = pdr_gridy;
+
+
+    // IVP part-----------------------------------------------------------------------------------------
+    volatile int ivpGridX  = -1;
+    volatile int ivpGridY  = -1;
+    volatile long ivpTs =  0;     // 毫秒
+
+    ScheduledExecutorService ivpScheduler = Executors.newSingleThreadScheduledExecutor();
+    void startIVPLoop() {
+        Log.d("IVP_START", "ivp capture routine started");
+        ivpScheduler.scheduleWithFixedDelay(() -> {
+            try {
+                ivpClient.captureBurst(5, 120)
+                        .whenComplete((pt, ex) -> {
+                            if (ex != null) {
+                                Log.e("IVP", "burst failed", ex);
+                            } else {
+                                int gx = Math.round((pt.x / 57f) * 99);
+                                int gy = Math.round((pt.y / 57f) * 99);
+                                ivpGridX = gx;
+                                ivpGridY = gy;
+                                ivpTs    = System.currentTimeMillis();
+                                Log.d("IVP", "RESPONSE → x=" + gx + " y=" + gy);
+                            }
+                        });
+            } catch (Throwable t) {
+                Log.e("IVP", "sync exception in scheduled task", t);
+            }
+        }, 0, 1, TimeUnit.SECONDS);
+    }
+
+
+
+    // fusion part--------------------------------------------------------------------------------------
+     private void updatePositionFused() {
+         int fused_gridx, fused_gridy;
+         if (wifi_gridx > 0 && wifi_gridy > 0) {
+             fused_gridx =(int) (0.8 * pdr_gridx + 0.2 * wifi_gridx);
+             fused_gridy =(int) (0.8 * pdr_gridy + 0.2 * wifi_gridy);
+         } else {
+             fused_gridx = pdr_gridx;
+             fused_gridy = pdr_gridy;
+         }
+
+         updateUser(fused_gridx, fused_gridy);
+     }
+
+    final Runnable fuseTask = new Runnable() {
+        @Override public void run() {
+
+            /* 抓最新值 ─── 注意可能仍是 -1（無效） */
+            int gxP = pdrGridX,  gyP = pdrGridY;
+            int gxW = wifiGridX, gyW = wifiGridY;
+            int gxI = ivpGridX, gyI = ivpGridY;
+
+            long now = System.currentTimeMillis();
+            boolean okP = gxP >= 0;
+            boolean okW = gxW >= 0 && now - wifiTs < 8000;     // Wi-Fi 保鮮 8 秒
+            boolean okI = gxI >= 0 && now - ivpTs < 3000; // IVP 保鮮 3 秒
+
+            if (!okP && !okW && !okI) {        // 沒資料，跳過
+                fuseH.postDelayed(this, 1000);
+                return;
+            }
+
+            /* ------- 訂個最簡權重 ------- */
+            float wP = okP ? 0.8f : 0f;
+            float wW = okW ? 0.2f : 0f;
+            float wI = okI ? 0.2f : 0f;
+
+            // 若三項都有效，就壓 PDR 比重
+            if (okP && okW && okI) { wP = 0.6f; wW = 0.2f; wI = 0.2f; }
+
+            float sum = wP + wW + wI;
+            wP /= sum; wW /= sum; wI /= sum;
+
+            float fusedX = wP*gxP + wW*gxW + wI*gxI;
+            float fusedY = wP*gyP + wW*gyW + wI*gyI;
+
+            int fx = Math.round(fusedX);
+            int fy = Math.round(fusedY);
+
+            Log.d("FustionOutput", fx + "," + fy);
+
+            /* ------- 上主執行緒改 UI ------- */
+            mainH.post(() -> updateUser(fx, fy));
+
+            fuseH.postDelayed(this, 1000);      // 5 Hz 更新
         }
-
-        updateUser(fused_gridx, fused_gridy);
-    }
-
+    };
 }
