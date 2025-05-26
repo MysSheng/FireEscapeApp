@@ -71,6 +71,11 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@android:color/transparent"/>
+
+        <com.app.myapp.JoystickView
+            android:id="@+id/joystickView2"
+            android:layout_width="80dp"
+            android:layout_height="80dp" />
     </FrameLayout>
 
     <EditText

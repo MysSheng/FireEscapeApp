@@ -264,6 +264,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 
     // =============================================== Wifi指紋 & PDR定位 ========================================
+    private JoystickView joystickView2;
+
     private WifiManager wifiManager;
     private static final String MODEL_URL = "http://" + MainActivity2.SERVER_IP + ":5000/download_model";
     private static final String SCALER_URL = "http://" + MainActivity2.SERVER_IP + ":5000/download_scaler";
@@ -281,6 +283,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     int wifi_gridx = -1;
     int wifi_gridy = -1;
     int pdr_gridx, pdr_gridy;
+
 
     // ========================== PDR 定位 ======================================================================
 
@@ -379,7 +382,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                         Log.e("CamInit", "camera failed", e);
                     }
                 }, ContextCompat.getMainExecutor(this));
-        startIVPLoop();
+        // startIVPLoop();
 
         // ==================================== WiFi 定位 & PDR 定位 ==============================================
         wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
@@ -398,6 +401,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         // 開啟偵測器
         registerSensors();
 
+        joystickView2 = findViewById(R.id.joystickView2);
+
+        joystickView2.setOnMoveListener((dx, dy) -> {
+            float adjustFactor = 0.8f; // 控制調整速度
+            pdr_x += dx * adjustFactor;
+            pdr_y += dy * adjustFactor;
+            // 限制 x 和 y 在 0~57m 範圍內
+            pdr_x = Math.max(0, Math.min(pdr_x, 57f));
+            pdr_y = Math.max(0, Math.min(pdr_y, 57f));
+
+            // thread safe version for later fusion
+            pdrGridX = Math.round((pdr_x / 57f) * 99);
+            pdrGridY = Math.round((pdr_y / 57f) * 99);
+            pdrTs    = System.currentTimeMillis();
+        });
+
         // =============================================================================================
         // =================================== fusion thread setup ==================================================
         HandlerThread fuseThread = new HandlerThread("FusionThread",
@@ -409,7 +428,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         SceneView sceneView = findViewById(R.id.sceneView);
         ARViewer.INSTANCE.setupSceneView(this, sceneView, (LifecycleOwner) this);
-        ARViewer.INSTANCE.setModelTransform(-30f,60f,20f);
+        ARViewer.INSTANCE.setModelTransform(0f,90f,0f);
 
 
         //陀螺儀測試
@@ -2344,7 +2363,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             long now = System.currentTimeMillis();
             boolean okP = gxP >= 0;
             boolean okW = gxW >= 0 && now - wifiTs < 8000;     // Wi-Fi 保鮮 8 秒
-            boolean okI = gxI >= 0 && now - ivpTs < 3000; // IVP 保鮮 3 秒
+            // boolean okI = gxI >= 0 && now - ivpTs < 3000; // IVP 保鮮 3 秒
+            boolean okI = false;
 
             if (!okP && !okW && !okI) {        // 沒資料，跳過
                 fuseH.postDelayed(this, 1000);
