@@ -18,6 +18,7 @@ import android.graphics.Canvas;
 import android.graphics.ImageFormat;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.Shader;
 import android.graphics.SurfaceTexture;
@@ -623,6 +624,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float posX = 0f, posY = 0f; // 當前平移位置
     private float maxPosX, maxPosY; // 最大可平移距離
     private ScaleGestureDetector scaleDetector;
+
+    private final ArrayList<Point> points = new ArrayList<>();
+    // 新增一個點
+    public void addPoint(int x, int y) {
+        points.add(new Point(x, y));
+    }
+    // 清除所有點
+    public void clear() {
+        points.clear();
+    }
+
+
     private void updateUser(int x, int y) {
         GridMapView gridMapView = findViewById(R.id.gridMapView);
         user_x = x;
@@ -632,14 +645,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Grid[][] escapeMap=fp.user_guide(user_x,user_y);
         gridMapView.post(() -> {
             // 清空地圖
-            for (int i = 0; i < 100; i++) {
-                for (int j = 0; j < 100; j++) {
-                    gridMapView.setCellImage(i, j, null);
-                    gridMapView.setCellScale(i, j, 1f);
-                    gridMapView.setCellRotation(i,j,0);
-                    gridMapView.gridToFront(i,j,0);
-                }
+//            for (int i = 0; i < 100; i++) {
+//                for (int j = 0; j < 100; j++) {
+//                    gridMapView.setCellImage(i, j, null);
+//                    gridMapView.setCellScale(i, j, 1f);
+//                    //gridMapView.setCellRotation(i,j,0);
+//                    //gridMapView.gridToFront(i,j,0);
+//                }
+//            }
+            for (Point p : points) {
+                gridMapView.setCellImage(p.y,p.x,null);
+                gridMapView.setCellScale(p.y,p.x,1f);
+                gridMapView.setCellRotation(p.y,p.x,0);
+                gridMapView.gridToFront(p.y,p.x,0);
             }
+            clear();
 
             gridMapView.invalidate();
             gridMapView.setCellImage(user_y, user_x, BitmapFactory.decodeResource(getResources(), R.drawable.user_point));
@@ -899,6 +919,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     public void showPath(Grid[][] escapeMap){
         int dir=escapeMap[user_x][user_y].getDirection();
         // Log.d("yaju",dirToText(dir));
+        addPoint(user_x,user_y);
         if(dir==Grid.UP) showPath(user_x-1,user_y,escapeMap);
         if(dir==Grid.DOWN) showPath(user_x+1,user_y,escapeMap);
         if(dir==Grid.LEFT) showPath(user_x,user_y-1,escapeMap);
@@ -910,6 +931,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     public void showPath(int x,int y,Grid[][] escapeMap){
+        addPoint(x,y);
         GridMapView gridMapView = findViewById(R.id.gridMapView);
         gridMapView.gridToFront(y,x,1.2f);
         int dir=escapeMap[x][y].getDirection();
@@ -943,6 +965,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     public void showPath(int x,int y,int lastDirection,Grid[][] escapeMap){
+        addPoint(x,y);
         GridMapView gridMapView = findViewById(R.id.gridMapView);
         gridMapView.gridToFront(y,x,1.0f);
         if (escapeMap[x][y].getType() == Grid.ROAD) {
@@ -1126,6 +1149,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     }
                 }
             } else if (lastDirection == Grid.UP_LEFT) {
+                addPoint(x+1,y);
+                addPoint(x,y+1);
                 gridMapView.setCellImage(y, x+1, getCachedBitmap(R.drawable.lu_rd_down));
                 gridMapView.setCellImage(y+1, x, getCachedBitmap(R.drawable.lu_rd_up));
                 if (dir == Grid.UP_LEFT) {
@@ -1172,6 +1197,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     }
                 }
             } else if (lastDirection == Grid.UP_RIGHT) {
+                addPoint(x+1,y);
+                addPoint(x,y-1);
                 gridMapView.setCellImage(y, x+1, getCachedBitmap(R.drawable.ld_ru_down));
                 gridMapView.setCellImage(y-1, x, getCachedBitmap(R.drawable.ld_ru_up));
                 if (dir == Grid.UP_LEFT) {
@@ -1218,6 +1245,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     }
                 }
             } else if (lastDirection == Grid.DOWN_LEFT) {
+                addPoint(x-1,y);
+                addPoint(x,y+1);
                 gridMapView.setCellImage(y, x-1, getCachedBitmap(R.drawable.ld_ru_up));
                 gridMapView.setCellImage(y+1, x, getCachedBitmap(R.drawable.ld_ru_down));
                 if (dir == Grid.DOWN_LEFT) {
@@ -1264,6 +1293,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     }
                 }
             } else if (lastDirection == Grid.DOWN_RIGHT) {
+                addPoint(x-1,y);
+                addPoint(x,y-1);
                 gridMapView.setCellImage(y, x-1, getCachedBitmap(R.drawable.lu_rd_up));
                 gridMapView.setCellImage(y-1, x, getCachedBitmap(R.drawable.lu_rd_down));
                 if (dir == Grid.DOWN_LEFT) {

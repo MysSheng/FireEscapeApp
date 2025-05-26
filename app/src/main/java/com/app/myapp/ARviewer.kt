@@ -36,7 +36,7 @@ object ARViewer {
             val modelFile = "models/direction_arrow.glb"
             val modelInstance = sceneView.modelLoader.createModelInstance(modelFile)
             modelNode = ModelNode(modelInstance, scaleToUnits = 2.0f).apply {
-                scale = Scale(0.25f)
+                scale = Scale(0.18f)
             }
             sceneView.addChildNode(modelNode!!)
         }
