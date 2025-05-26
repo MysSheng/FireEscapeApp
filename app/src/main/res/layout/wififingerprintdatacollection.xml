@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".WifiFingerprintDataCollection">
+
+  <TextView
+      android:id="@+id/positionTextView"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="Position"
+      android:textSize="20sp"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.508"
+      app:layout_constraintStart_toEndOf="@+id/joystickView"
+      app:layout_constraintTop_toTopOf="@+id/guideline6"
+      app:layout_constraintVertical_bias="0.244" />
+
+  <TextView
+      android:id="@+id/scanCountTextView"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="Scan Count: 0"
+      android:textSize="20sp"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.508"
+      app:layout_constraintStart_toEndOf="@+id/joystickView"
+      app:layout_constraintTop_toTopOf="@+id/guideline6"
+      app:layout_constraintVertical_bias="0.653" />
+
+  <TextView
+      android:id="@+id/StepInfoTextView"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:textSize="20sp"
+      android:visibility="invisible"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.554"
+      app:layout_constraintStart_toEndOf="@+id/azimuthArrowView"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="0.133"
+      tools:visibility="invisible" />
+
+  <com.app.myapp.MapView_CSIE_1F
+      android:id="@+id/mapView_CSIE_1F_small"
+      android:layout_width="351dp"
+      android:layout_height="364dp"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="0.035" />
+
+  <com.app.myapp.AzimuthArrowView
+      android:id="@+id/azimuthArrowView"
+      android:layout_width="43dp"
+      android:layout_height="50dp"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.94"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="0.058" />
+
+  <LinearLayout
+      android:id="@+id/linearLayout"
+      android:layout_width="229dp"
+      android:layout_height="195dp"
+      android:orientation="vertical"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toBottomOf="@+id/mapView_CSIE_1F_small"
+      app:layout_constraintVertical_bias="0.08">
+
+    <Button
+        android:id="@+id/StartScanningBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="0dp"
+        android:padding="0dp"
+        android:text="Start Scanning"
+        android:textSize="20sp" />
+
+    <Button
+        android:id="@+id/StopScanningBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="0dp"
+        android:layout_marginBottom="220dp"
+        android:padding="0dp"
+        android:text="Stop Scanning"
+        android:textSize="20sp" />
+
+    <Button
+        android:id="@+id/SaveCsvBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="0dp"
+        android:padding="0dp"
+        android:text="Save as CSV File"
+        android:textSize="20sp" />
+
+    <Button
+        android:id="@+id/SendToServerBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="0dp"
+        android:padding="0dp"
+        android:text="Sent to Server"
+        android:textSize="20sp" />
+  </LinearLayout>
+
+  <com.app.myapp.JoystickView
+      android:id="@+id/joystickView"
+      android:layout_width="113dp"
+      android:layout_height="100dp"
+      app:layout_constraintBottom_toBottomOf="parent"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.073"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="@+id/guideline6"
+      app:layout_constraintVertical_bias="0.375" />
+
+  <androidx.constraintlayout.widget.Guideline
+      android:id="@+id/guideline6"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:orientation="horizontal"
+      app:layout_constraintGuide_begin="637dp" />
+
+  <ProgressBar
+      android:id="@+id/wifiProgressBar"
+      style="?android:attr/progressBarStyleHorizontal"
+      android:layout_width="300dp"
+      android:layout_height="30dp"
+      app:layout_constraintBottom_toTopOf="@+id/guideline6"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toBottomOf="@+id/linearLayout" />
+
+  <TextView
+      android:id="@+id/NorthtextView"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="4dp"
+      android:text=" N "
+      android:textSize="20sp"
+      app:layout_constraintBottom_toTopOf="@+id/azimuthArrowView"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintHorizontal_bias="0.918"
+      app:layout_constraintStart_toStartOf="parent"
+      app:layout_constraintTop_toTopOf="parent"
+      app:layout_constraintVertical_bias="1.0" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -5,8 +5,11 @@ import static java.security.AccessController.getContext;
 import android.Manifest;
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -37,6 +40,8 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.net.wifi.ScanResult;
+import android.net.wifi.WifiManager;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -69,6 +74,7 @@ import androidx.lifecycle.LifecycleOwner;
 //import android.support.v7.app.AlertDialog;
 //import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.os.Looper;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
@@ -92,12 +98,20 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -140,10 +154,13 @@ import io.github.sceneview.node.ModelNode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-
+import org.tensorflow.lite.Interpreter;
 
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
@@ -235,6 +252,68 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // variables for IVP
     private IVP_Client ivpClient;
 
+    // =============================================== Wifi指紋 & PDR定位 ========================================
+    private WifiManager wifiManager;
+    private static final String MODEL_URL = "http://" + MainActivity2.SERVER_IP + ":5000/download_model";
+    private static final String SCALER_URL = "http://" + MainActivity2.SERVER_IP + ":5000/download_scaler";
+    private File modelFile, scalerFile;
+    private Interpreter tflite;
+
+    // Scalar
+    float [] mean, scale;
+
+
+    private final String[] targetSSIDs = {"CSIE-WLAN", "CSIE-WLAN-Sparq", "CSIE-WLAN-Office", "CSIE-MOUSE"};
+
+    private static final long WIFI_SCAN_INTERVAL = 5000; // Wi-Fi 掃描間隔 (5 秒)
+
+    int wifi_gridx = -1;
+    int wifi_gridy = -1;
+    int pdr_gridx, pdr_gridy;
+
+    // ========================== PDR 定位 ======================================================================
+
+    private SensorManager sensorManagerPDR;
+    private Sensor accelerometer, magnetometer, gyroscopePDR;
+    private TextView positionTextView, stepInfoTextView, scanCountTextView;
+    private Button startScanningBtn, stopScanningBtn, sendToServerBtn, saveCsvBtn;
+
+    private float[] gravity, geomagnetic;
+    private float azimuth = 0f; // 方向角
+    private float stepCount = 0;
+    private float stepLength = 0.7f; // 假設每一步長 70cm
+    private float pdr_x = 3, pdr_y = 5; // (x, y) 初始座標
+    private List<String> collectedData = new ArrayList<>(); // 儲存 WiFi RSSI 和座標資料
+    private int scanCount = 0; // 計算 WiFi 掃描次數
+
+    // 動態步長估計
+    private float total_length = 0;
+
+    private List<Float> accZValues = new ArrayList<>();
+    private List<Long> accZTimestamp = new ArrayList<>();
+    private long peakTimestamp;
+    private float peakValue;
+    private long valleyTimestamp;
+    private float valleyValue;
+
+    private boolean find_valley = false, find_peak = false;
+
+    private static final float PEAK_VALLEY_THRESHOLD = 1.2f; // 峰谷差距 (m/s²) 門檻
+    private static final float ACC_THRESHOLD = 11.0f; // 步伐偵測基本門檻
+    private static final long STEP_INTERVAL_THRESHOLD = 350; // 兩步之間的最小間格 (ms)
+
+    // Complementary Filter Using Gyroscope
+    private float[] gyro = new float[3];
+    private float fusedYaw = 0f;
+    private long lastUpdateTime_PDR = -1;
+    private static final float FILTER_ALPHA = 0.9f; // complementary filter blending constant
+
+
+
+    // ===============================================================================================================
+
+
+
     //自動偵測位置
     private Handler handler = new Handler();
     private Runnable detectionTask = new Runnable() {
@@ -287,29 +366,31 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     }
                 }, ContextCompat.getMainExecutor(this));
 
+        // ==================================== WiFi 定位 & PDR 定位 ==============================================
+        wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+        }
+
+        loadModelAndPredict();
+
+        // 初始化感測器
+        sensorManagerPDR = (SensorManager) getSystemService(SENSOR_SERVICE);
+        accelerometer = sensorManagerPDR.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        magnetometer = sensorManagerPDR.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        gyroscopePDR = sensorManagerPDR.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+
+        // 開啟偵測器
+        registerSensors();
+
+        // =============================================================================================
+
 
 
 
         SceneView sceneView = findViewById(R.id.sceneView);
         ARViewer.INSTANCE.setupSceneView(this, sceneView, (LifecycleOwner) this);
         ARViewer.INSTANCE.setModelTransform(-30f,60f,20f);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
         //陀螺儀測試
@@ -324,8 +405,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //startOrientationChangeListener();
 //        mTextureView = findViewById(R.id.textureView);
         // mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
-
-
 
 
         fp.setRunSpeed(2);
@@ -498,20 +577,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     private boolean isScaling = false;
@@ -1466,10 +1531,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private boolean isInitialOrientationSet = false;
     private float initialAzimuth = 0;
 
-    // 加速度計 & 磁力計數據
-    private float[] gravity = new float[3];
-    private float[] geomagnetic = new float[3];
-
     @Override
     public void onSensorChanged(SensorEvent event) {
 
@@ -1598,6 +1659,56 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
 
 
+        // ================================== PDR定位 ===================================================
+
+        switch (event.sensor.getType()) {
+            case Sensor.TYPE_ACCELEROMETER:
+                gravity = event.values.clone();
+                detectStep(event.values);
+                break;
+
+            case Sensor.TYPE_MAGNETIC_FIELD:
+                geomagnetic = event.values.clone();
+                break;
+
+            case Sensor.TYPE_GYROSCOPE:
+                gyro = event.values.clone();
+                break;
+        }
+
+        if (gravity != null && geomagnetic != null) {
+            float deltaT = (lastUpdateTime_PDR > 0) ? (currentTime - lastUpdateTime_PDR) / 1000f : 0f; // seconds
+
+            // Get yaw from magnetometer + accelerometer
+            float[] R = new float[9];
+            float[] I = new float[9];
+            if (SensorManager.getRotationMatrix(R, I, gravity, geomagnetic)) {
+                float[] orientation = new float[3];
+                SensorManager.getOrientation(R, orientation);
+                float yawMagAcc = (float) Math.toDegrees(orientation[0]);
+                if (yawMagAcc < 0) yawMagAcc += 360;
+
+                // Get yaw from gyroscope
+                float gyroZ = gyro[2]; // 角速度
+                float deltaYawGyro = gyroZ * deltaT;
+
+                if (lastUpdateTime_PDR > 0) {
+                    // fusedYaw = FILTER_ALPHA * (fusedYaw + deltaYawGyro) + (1 - FILTER_ALPHA) * yawMagAcc;
+                    float predictedYaw = fusedYaw + deltaYawGyro;
+                    float angleDiff = ((yawMagAcc - predictedYaw + 540) % 360) - 180;
+                    fusedYaw = predictedYaw + (1 - FILTER_ALPHA) * angleDiff;
+
+                    if (fusedYaw < 0) fusedYaw += 360;
+                    if (fusedYaw >= 360) fusedYaw -= 360;
+                } else {
+                    fusedYaw = yawMagAcc;
+                }
+
+                azimuth = fusedYaw;
+                // azimuthArrowView.setAzimuth(360 - azimuth);
+            }
+            lastUpdateTime_PDR = currentTime;
+        }
     }
 
     @Override
@@ -1818,5 +1929,339 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
+    // ====================================================== Wifi 定位 ===================================================================
+
+    private void loadModelAndPredict() {
+        File modelDir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        modelFile = new File(modelDir, "model.tflite");
+        scalerFile = new File(modelDir, "scaler.json");
+
+        // runOnUiThread(() -> Toast.makeText(this, modelFile.exists() == true ? "Exist" : "Doesn't exist", Toast.LENGTH_SHORT).show());
+
+        if (modelFile.exists() && scalerFile.exists()) {
+            new Thread(() -> {
+                try {
+                    tflite = new Interpreter(loadModelFile(modelFile));
+                    loadScaler(scalerFile);
+                    runOnUiThread(() -> Toast.makeText(this, "Model successfully loaded", Toast.LENGTH_SHORT).show());
+                    scanAndPredict();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    runOnUiThread(() -> Toast.makeText(this, "Failed to load model", Toast.LENGTH_SHORT).show());
+                }
+            }).start();
+        } else {
+            downloadAndLoadModel();
+        }
+    }
+
+    private void loadScaler(File scalerFile) throws IOException, JSONException {
+        FileInputStream fis = new FileInputStream(scalerFile);
+        StringBuilder sb = new StringBuilder();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(fis));
+
+
+        String line;
+        while ((line = reader.readLine()) != null) {
+            sb.append(line);
+        }
+        reader.close();
+
+        JSONObject json = new JSONObject(sb.toString());
+        JSONArray meanJson = json.getJSONArray("mean");
+        JSONArray scaleJson = json.getJSONArray("scale");
+
+        mean = new float[meanJson.length()];
+        scale = new float[scaleJson.length()];
+
+        for (int i = 0; i < meanJson.length(); i++) {
+            mean[i] = (float) meanJson.getDouble(i);
+            scale[i] = (float) scaleJson.getDouble(i);
+        }
+    }
+
+    private void downloadAndLoadModel() {
+        new Thread(() -> {
+            try {
+                URL model_url = new URL(MODEL_URL);
+                HttpURLConnection model_connection = (HttpURLConnection) model_url.openConnection();
+                model_connection.connect();
+
+                File modelDir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                modelFile = new File(modelDir, "model.tflite");
+
+                Log.d("ModelDownload", "Downloaded model size = " + modelFile.length());
+
+                try (BufferedInputStream in = new BufferedInputStream(model_connection.getInputStream());
+                     FileOutputStream out = new FileOutputStream(modelFile)) {
+                    byte[] buffer = new byte[1024];
+                    int count;
+                    while ((count = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, count);
+                    }
+                }
+
+                URL scaler_url = new URL(SCALER_URL);
+                HttpURLConnection scalar_connection = (HttpURLConnection) scaler_url.openConnection();
+                scalar_connection.connect();
+
+                scalerFile = new File(modelDir, "scaler.json");
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(scalar_connection.getInputStream()));
+                     FileOutputStream out = new FileOutputStream(scalerFile)) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        out.write(line.getBytes());
+                    }
+                }
+
+                tflite = new Interpreter(loadModelFile(modelFile));
+                loadScaler(scalerFile);
+
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "Model downloaded and loaded", Toast.LENGTH_SHORT).show();
+                    scanAndPredict();
+                });
+
+            } catch (Exception e) {
+                Log.e("ModelDownload", "Error", e);
+                e.printStackTrace();
+                runOnUiThread(() -> Toast.makeText(this, "Model download failed", Toast.LENGTH_SHORT).show());
+            }
+        }).start();
+    }
+
+    private MappedByteBuffer loadModelFile(File file) throws IOException {
+        FileInputStream inputStream = new FileInputStream(file);
+        FileChannel fileChannel = inputStream.getChannel();
+        long startOffset = 0;
+        long declaredLength = file.length();
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+    }
+
+    private void scanAndPredict() {
+        if (!wifiManager.isWifiEnabled()) {
+            wifiManager.setWifiEnabled(true);
+        }
+
+        registerReceiver(wifiScanReceiver, new android.content.IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+
+        startScanLoop();
+    }
+
+    private void predict(float[] inputRssi) {
+        if (tflite == null) {
+            Toast.makeText(this, "Model not loaded", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        for (int i = 0; i < inputRssi.length; i++) {
+            inputRssi[i] = (inputRssi[i] - mean[i]) / scale[i];
+        }
+
+        float[][] output = new float[1][2];
+        tflite.run(inputRssi, output);
+        float x = output[0][0];
+        float y = output[0][1];
+
+        // runOnUiThread(() -> Toast.makeText(this, "x = " + x + "y = " + y, Toast.LENGTH_SHORT).show());
+
+        // 將 0~57 m 映射到 0~99 的格點
+        wifi_gridx = Math.max(0, Math.min(99, Math.round((x / 57f) * 99)));
+        wifi_gridy = Math.max(0, Math.min(99, Math.round((y / 57f) * 99)));
+
+    }
+
+    private final BroadcastReceiver wifiScanReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions((Activity) context, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+                return;
+            }
+            List<ScanResult> results = wifiManager.getScanResults();
+
+            // 儲存 RSSI 加總與次數
+            HashMap<String, Integer> sumMap = new HashMap<>();
+            HashMap<String, Integer> countMap = new HashMap<>();
+
+            for (ScanResult result: results) {
+                String ssid = result.SSID;
+                int rssi = result.level;
+
+                sumMap.put(result.SSID, sumMap.getOrDefault(ssid, 0) + rssi);
+                countMap.put(ssid, countMap.getOrDefault(ssid, 0) + 1);
+            }
+
+            float[] inputRssi = new float[targetSSIDs.length];
+            for (int i = 0; i < targetSSIDs.length; i++) {
+                String ssid = targetSSIDs[i];
+                if (sumMap.containsKey(ssid)) {
+                    float avevrage = (float) sumMap.get(ssid) / countMap.get(ssid);
+                    inputRssi[i] = avevrage;
+                } else {
+                    inputRssi[i] = -100f; // 沒掃到就補 -100
+                }
+
+//                final int index = i;
+//                runOnUiThread(() -> Toast.makeText(context, "SSID: + " + targetSSIDs[index] + ", RSSI: " + inputRssi[index], Toast.LENGTH_SHORT).show());
+            }
+
+            predict(inputRssi);
+        }
+    };
+
+    private void startScanLoop() {
+        registerReceiver(wifiScanReceiver, new android.content.IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
+        handler.post(wifiScanRunnable); // 開始循環
+    }
+
+    private Runnable wifiScanRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (ActivityCompat.checkSelfPermission(MainActivity.this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(MainActivity.this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+                return;
+            }
+            wifiManager.startScan(); // 觸發掃描，結果由 onReceive 處理
+            handler.postDelayed(this, WIFI_SCAN_INTERVAL); // 安排下一次
+        }
+    };
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        // 移除所有 handler 任務，防止掃描繼續
+        handler.removeCallbacksAndMessages(null);
+    }
+
+
+    // 註冊感測器監聽
+    private void registerSensors() {
+        sensorManagerPDR.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI, 10000);
+        sensorManagerPDR.registerListener(this, magnetometer, SensorManager.SENSOR_DELAY_UI, 10000);
+        sensorManagerPDR.registerListener(this, gyroscopePDR, SensorManager.SENSOR_DELAY_UI, 10000);
+    }
+
+    // 取消感測器監聽
+    private void unregisterSensors() {
+        sensorManager.unregisterListener(this);
+    }
+
+
+    // 主偵測器 使用動態步長估計
+    private void detectStep(float[] values) {
+        float accZ = values[2];
+        // float acceleration = (float) Math.sqrt(values[0] * values[0] + values[1] * values[1] + values[2] * values[2]);
+
+        long currentTime = System.currentTimeMillis();
+
+        // 更新 peak valley 列表
+        updatePeakValley(accZ, currentTime);
+
+        // 每次新資料到就嘗試偵測步伐
+        checkAndDetectStep();
+
+
+    }
+
+    // 更新 peak / valley 資訊
+    private void updatePeakValley(float accZ, long timestamp) {
+        int n = accZValues.size();
+
+        if (n >= 2) {
+            float lastAccZ = accZValues.get(n - 1);
+            float secondLastAccZ = accZValues.get(n - 2);
+
+            // 上升轉折: lastAcc 是 valley
+            if (lastAccZ <= secondLastAccZ && lastAccZ <= accZ) {
+                if (!find_valley) {
+                    find_valley = true;
+                    valleyValue = lastAccZ;
+                    valleyTimestamp = accZTimestamp.get(n - 1);
+                } else {
+                    if (lastAccZ < valleyValue) {
+                        valleyValue = lastAccZ;
+                        valleyTimestamp = accZTimestamp.get(n - 1);
+                    }
+                }
+            }
+            // 下降轉折: lastAcc 是 peak
+            if (lastAccZ >= secondLastAccZ && lastAccZ >= accZ) {
+                if (!find_peak) {
+                    find_peak = true;
+                    peakValue = lastAccZ;
+                    peakTimestamp = accZTimestamp.get(n - 1);
+                } else {
+                    if (lastAccZ > valleyValue) {
+                        peakValue = lastAccZ;
+                        peakTimestamp = accZTimestamp.get(n - 1);
+                    }
+                }
+            }
+        }
+
+        accZValues.add(accZ);
+        accZTimestamp.add(timestamp);
+        // 防止無限成長
+        if (accZValues.size() > 100) accZValues.remove(0);
+        if (accZTimestamp.size() > 100) accZTimestamp.remove(0);
+    }
+
+    // 根據 peak / valley 資料判斷是否形成步伐
+    private void checkAndDetectStep() {
+        if (find_peak && find_valley) {
+            // 峰谷差
+            float amplitude = Math.abs(peakValue - valleyValue);
+
+            // 判斷是否符合步伐條件
+            if (amplitude > PEAK_VALLEY_THRESHOLD && Math.abs(peakTimestamp - valleyTimestamp) > STEP_INTERVAL_THRESHOLD && peakValue > 10 && valleyValue < 9.5) {
+                stepCount++;
+
+                stepInfoTextView.setText("");
+
+                // Weinberg 步長估算公式
+                stepLength = 0.4f * (float) Math.pow(amplitude, 0.25);
+                total_length += stepLength;
+                // Toast.makeText(this, "Step Length: " + stepLength, Toast.LENGTH_SHORT).show();
+//                stepInfoTextView.setText("peakValue = " + peakValue + "\n"
+//                                        + "valleyValue = " + valleyValue + "\n"
+//                                        + "time = " + Math.abs(peakTimestamp - valleyTimestamp) + "\n"
+//                                        + "total Length = " + total_length);
+
+                updatePosition();
+
+                // 計算新的步伐
+                find_valley = false;
+                find_peak = false;
+                accZValues.clear();
+                accZTimestamp.clear();
+            }
+        }
+    }
+
+    // 更新 x, y 座標
+    private void updatePosition() {
+        double radian = Math.toRadians(azimuth);
+        pdr_x += stepLength * Math.sin(radian);
+        pdr_y -= stepLength * Math.cos(radian);
+        // 限制 x 和 y 在 0~57m 範圍內
+        pdr_x = Math.max(0, Math.min(pdr_x, 57f));
+        pdr_y = Math.max(0, Math.min(pdr_y, 57f));
+        updatePositionFused();
+    }
+
+    private void updatePositionFused() {
+        int fused_gridx, fused_gridy;
+        if (wifi_gridx > 0 && wifi_gridy > 0) {
+            fused_gridx =(int) (0.8 * pdr_gridx + 0.2 * wifi_gridx);
+            fused_gridy =(int) (0.8 * pdr_gridy + 0.2 * wifi_gridy);
+        } else {
+            fused_gridx = pdr_gridx;
+            fused_gridy = pdr_gridy;
+        }
+
+        updateUser(fused_gridx, fused_gridy);
+    }
 
 }
