@@ -36,7 +36,7 @@ object ARViewer {
             val modelFile = "models/direction_arrow.glb"
             val modelInstance = sceneView.modelLoader.createModelInstance(modelFile)
             modelNode = ModelNode(modelInstance, scaleToUnits = 2.0f).apply {
-                scale = Scale(0.25f)
+                scale = Scale(0.18f)
             }
             sceneView.addChildNode(modelNode!!)
         }
@@ -49,15 +49,25 @@ object ARViewer {
         }
     }
 
-    fun logCurrentRotation() {
-        modelNode?.rotation?.let { rotation ->
-            val x = rotation.x
-            val y = rotation.y
-            val z = rotation.z
-            Log.d("ARViewer", "Current Rotation - X: $x, Y: $y, Z: $z")
-        } ?: run {
-            Log.d("ARViewer", "ModelNode is null or not initialized.")
+    fun setModelPosition(posX: Float, posY: Float , posZ: Float) {
+        modelNode?.apply {
+            this.position = Position(posX,posY,posZ)
         }
+    }
+
+//    fun logCurrentRotation() {
+//        modelNode?.rotation?.let { rotation ->
+//            val x = rotation.x
+//            val y = rotation.y
+//            val z = rotation.z
+//            Log.d("ARViewer", "Current Rotation - X: $x, Y: $y, Z: $z")
+//        } ?: run {
+//            Log.d("ARViewer", "ModelNode is null or not initialized.")
+//        }
+//    }
+
+    fun getModelRotationY(): Float {
+        return modelNode?.rotation?.y ?: 0.0f
     }
 
 }
