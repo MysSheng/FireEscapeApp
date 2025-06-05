@@ -12,6 +12,7 @@ import android.graphics.PointF;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -97,7 +98,8 @@ import java.util.zip.GZIPOutputStream;
 public class IVP_Client {
     private final ImageCapture imageCapture;
     private final Executor executor;
-    private final Handler handler;
+    private final HandlerThread schedulerThread;
+    private final Handler schedulerHandler;
     private final CaptureCallback callback;
 
     public IVP_Client(@NonNull Context ctx,
@@ -105,7 +107,9 @@ public class IVP_Client {
                       @NonNull CaptureCallback callback) {
         this.imageCapture   = imageCapture;
         this.executor       = Executors.newSingleThreadExecutor();
-        this.handler        = new Handler(Looper.getMainLooper());
+        this.schedulerThread = new HandlerThread("IVP-Capture-Thread");
+        this.schedulerThread.start();
+        this.schedulerHandler = new Handler(schedulerThread.getLooper());
         this.callback       = callback;
     }
 
@@ -114,7 +118,9 @@ public class IVP_Client {
                       Mat cameraMatrix) {
         this.imageCapture = imageCapture;
         this.executor = Executors.newSingleThreadExecutor();
-        this.handler = new Handler(Looper.getMainLooper());
+        this.schedulerThread = new HandlerThread("IVP-Capture-Thread");
+        this.schedulerThread.start();
+        this.schedulerHandler = new Handler(schedulerThread.getLooper());
         this.callback = new DefaultCallback(cameraMatrix);
     }
 
@@ -148,13 +154,13 @@ public class IVP_Client {
                                         image.close();
                                     }
                                     count++;
-                                    handler.postDelayed(r[0], delayMillis);
+                                    schedulerHandler.postDelayed(r[0], delayMillis);
                                 }
                                 @Override
                                 public void onError(@NonNull ImageCaptureException exc) {
                                     callback.onError(exc);
                                     count++;
-                                    handler.postDelayed(r[0], delayMillis);
+                                    schedulerHandler.postDelayed(r[0], delayMillis);
                                 }
                             }
                     );
@@ -178,7 +184,7 @@ public class IVP_Client {
             }
         };
 
-        handler.post(r[0]);
+        schedulerHandler.post(r[0]);
         return result;
     }
 
@@ -243,6 +249,7 @@ class DefaultCallback implements CaptureCallback {
 
         // Send keypoints and descriptors to server
         sendKeypointsToServer(kpts, descriptors, cameraMatrix);
+        // sendCapturedImageToServer(bestImage);
 
         // Release resources
         mat.release();
@@ -331,6 +338,36 @@ class DefaultCallback implements CaptureCallback {
                 new Handler(Looper.getMainLooper()).post(() -> this.onResultReady(x, y));
             } catch (Exception e) {
                 Log.e("IVP", "Socket error", e);
+            }
+        }).start();
+    }
+
+    private void sendCapturedImageToServer(Bitmap bitmap) {
+        new Thread(() -> {
+            String SERVER_IP = "10.180.202.32";
+            int SERVER_PORT = 34567;
+            try {
+                // Convert the Bitmap to JPEG (80% quality)
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+                byte[] imageBytes = baos.toByteArray();
+                Log.d("SendImage", "JPEG image size: " + imageBytes.length + " bytes");
+
+                // Create a socket connection to the server.
+                Socket socket = new Socket(SERVER_IP, SERVER_PORT);
+                DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+
+                // Send the length of the image bytes first (4 bytes integer)
+                dos.writeInt(imageBytes.length);
+                // Then send the actual image bytes
+                dos.write(imageBytes);
+                dos.flush();
+
+                dos.close();
+                socket.close();
+                Log.d("SendImage", "Image sent successfully.");
+            } catch (Exception e) {
+                Log.e("SendImage", "Error sending image: " + e.getMessage());
             }
         }).start();
     }
