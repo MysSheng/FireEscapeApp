@@ -186,7 +186,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }*/
 
 
-
     //陀螺儀旋轉
     private static final String TAG = "MainActivity";
     private static final long CALIBRATION_TIME_MS = 60_000; // 1 minute in milliseconds
@@ -211,7 +210,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private boolean isCalibrating = false;
     private int calibrationCount = 0;
     private long calibrationStartTime = 0;
-    private final int REQUEST_PERMISSION_CAMERA = 100;
+    private final int REQUEST_PERMISSION_CAMERA = 1001;
     private boolean mbFaceDetAvailable;
     private int miMaxFaceCount = 0;
     private int miFaceDetMode;
@@ -354,7 +353,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
 
-
+    private static final int REQUEST_CAMERA_PERMISSION = 1001;
     @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -371,20 +370,32 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         // wait for the camera to start, anc setup ivpClient when init success.
         PreviewView previewView = findViewById(R.id.textureView);
-        ListenableFuture<Pair<ImageCapture, Mat>> camFuture =
-                startCamera(previewView);
-        camFuture.addListener(() -> {
-                    try {
-                        Pair<ImageCapture, Mat> result = camFuture.get();   // already finished here
-                        ImageCapture imageCap = result.first;
-                        Mat camMat            = result.second;
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            // 没有权限，申请
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{ Manifest.permission.CAMERA },
+                    REQUEST_CAMERA_PERMISSION
+            );
+        } else {
+            // 已经有权限，初始化相机并启动 IVP 循环
+            ListenableFuture<Pair<ImageCapture, Mat>> camFuture =
+                    startCamera(previewView);
+            camFuture.addListener(() -> {
+                try {
+                    Pair<ImageCapture, Mat> result = camFuture.get();   // already finished here
+                    ImageCapture imageCap = result.first;
+                    Mat camMat            = result.second;
 
-                        ivpClient = new IVP_Client(this, imageCap, camMat);
-                    } catch (Exception e) {
-                        Log.e("CamInit", "camera failed", e);
-                    }
-                }, ContextCompat.getMainExecutor(this));
-        startIVPLoop();
+                    ivpClient = new IVP_Client(this, imageCap, camMat);
+                } catch (Exception e) {
+                    Log.e("CamInit", "camera failed", e);
+                }
+            }, ContextCompat.getMainExecutor(this));
+            startIVPLoop();
+        }
+
 
         // ==================================== WiFi 定位 & PDR 定位 ==============================================
         wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
@@ -2343,6 +2354,38 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 Log.e("IVP", "sync exception in scheduled task", t);
             }
         }, 0, 1, TimeUnit.SECONDS);
+    }
+
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == REQUEST_CAMERA_PERMISSION) {
+            // 仅针对 CAMERA 权限请求
+            if (grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                PreviewView previewView = findViewById(R.id.textureView);
+                // 用户同意了摄像头权限，开始初始化相机并启动 IVP
+                ListenableFuture<Pair<ImageCapture, Mat>> camFuture =
+                        startCamera(previewView);
+                camFuture.addListener(() -> {
+                    try {
+                        Pair<ImageCapture, Mat> result = camFuture.get();   // already finished here
+                        ImageCapture imageCap = result.first;
+                        Mat camMat            = result.second;
+
+                        ivpClient = new IVP_Client(this, imageCap, camMat);
+                    } catch (Exception e) {
+                        Log.e("CamInit", "camera failed", e);
+                    }
+                }, ContextCompat.getMainExecutor(this));
+                startIVPLoop();
+            } else {
+                // 用户拒绝了权限，提示一下
+                Toast.makeText(this, "Camera permission is required", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
 
