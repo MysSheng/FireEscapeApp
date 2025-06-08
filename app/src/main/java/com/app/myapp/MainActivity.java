@@ -2099,7 +2099,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     volatile int wifiGridX = -1, wifiGridY = -1;
-    volatile boolean wifiReady = false;
+    boolean wifiReady = false;
     private void predict(float[] inputRssi) {
         if (tflite == null) {
             Toast.makeText(this, "Model not loaded", Toast.LENGTH_SHORT).show();
@@ -2305,7 +2305,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // 更新 x, y 座標
     volatile int pdrGridX  = -1;
     volatile int pdrGridY  = -1;
-    volatile boolean pdrReady = false;
+    boolean pdrReady = false;
     private void updatePosition() {
         double radian = Math.toRadians(azimuth);
         pdr_x += stepLength * Math.sin(radian);
@@ -2328,7 +2328,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // IVP part-----------------------------------------------------------------------------------------
     volatile int ivpGridX  = -1;
     volatile int ivpGridY  = -1;
-    volatile boolean ivpReady =  false;     // 毫秒
+    boolean ivpReady =  false;     // 毫秒
 
     ScheduledExecutorService ivpScheduler = Executors.newSingleThreadScheduledExecutor();
     void startIVPLoop() {
@@ -2407,9 +2407,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     float  P      = 1.0f;          // PDR 方差 (m²)
     final float SIGMA_STEP = 0.25f;// 每步 1σ ≈ 0.25 m
-    float  gxP, gyP;               // PDR 座標
-    float  gxW, gyW, sigmaW;       // Wi-Fi
-    float  gxI, gyI, sigmaI;       // Visual
+    float  sigmaW, sigmaI;       // Visual
     final Runnable fuseTask = new Runnable() {
         @Override public void run() {
             float xFused, yFused;
@@ -2435,8 +2433,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 wP /= sum;  wW /= sum;  wI /= sum;
 
                 /* ---------- 加權平均 ---------- */
-                xFused = wP*gxP + wW*gxW + wI*gxI;
-                yFused = wP*gyP + wW*gyW + wI*gyI;
+                xFused = wP*pdrGridX + wW*wifiGridX + wI*wifiGridX;
+                yFused = wP*pdrGridY + wW*wifiGridX + wI*wifiGridX;
 
                 /* ---------- 更新 P ---------- */
                 // bayes: P_new = 1 / (1/P + Σ 1/σ²)
@@ -2453,7 +2451,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             final int fy = Math.round(yFused);
             mainH.post(() -> updateUser(fx, fy));
 
-            fuseH.postDelayed(this, 200); // 5Hz
+            fuseH.postDelayed(this, 100); // 5Hz
         }
     };
 }
