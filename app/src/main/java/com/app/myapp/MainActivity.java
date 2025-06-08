@@ -553,7 +553,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     int y = Integer.parseInt(editTextY.getText().toString());
                      user_x = x;
                      user_y = y;
-                     updateUser(user_x,user_y);
+                     updateUser(user_y, user_x);
 
 
 //                     ivpClient.captureBurst(5, 120)
@@ -2237,7 +2237,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
          /* ---------- 清 ready 旗標 ---------- */
          pdrReady = wifiReady = ivpReady = false;
 
-         updateUser(fused_gridx, fused_gridy);
+         updateUser(fused_gridy, fused_gridx);
      }
 
 
