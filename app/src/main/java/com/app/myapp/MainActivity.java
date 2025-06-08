@@ -237,7 +237,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float azimuth = 0f; // 方向角
     private float stepCount = 0;
     private float stepLength = 0.7f; // 假設每一步長 70cm
-    private float pdr_x = 10, pdr_y = 10; // (x, y) 初始座標
+    private float pdr_x = 38, pdr_y = 30; // (x, y) 初始座標
     private List<String> collectedData = new ArrayList<>(); // 儲存 WiFi RSSI 和座標資料
     private int scanCount = 0; // 計算 WiFi 掃描次數
 
