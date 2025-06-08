@@ -1389,7 +1389,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
 
         // 這裡保留原本的時間間隔判斷，避免過於頻繁的更新
-        if (System.currentTimeMillis() - lastUpdateTime > 250) {
+        if (System.currentTimeMillis() - lastUpdateTime > 16f) {
             SensorManager.getRotationMatrix(rotationMatrix, null, lastAccelerometer, lastMagnetometer);
             SensorManager.getOrientation(rotationMatrix, orientation);
 
