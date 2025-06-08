@@ -553,7 +553,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     int y = Integer.parseInt(editTextY.getText().toString());
                      user_x = x;
                      user_y = y;
-                     updateUser(user_x,user_y);
+                     updateUser(user_y, user_x);
 
 
 //                     ivpClient.captureBurst(5, 120)
@@ -1990,7 +1990,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     // 主偵測器 使用動態步長估計
     private void detectStep(float[] values) {
-        float accZ = values[2];
+        if (gravity == null) return;
+
+        // Normalize gravity 向量
+        float gNorm = (float) Math.sqrt(gravity[0]*gravity[0] + gravity[1]*gravity[1] + gravity[2]*gravity[2]);
+        float gx = gravity[0] / gNorm;
+        float gy = gravity[1] / gNorm;
+        float gz = gravity[2] / gNorm;
+
+        // 加速度投影到 gravity 方向（即地面垂直方向）
+        float accZ = values[0]*gx + values[1]*gy + values[2]*gz;
+
         // float acceleration = (float) Math.sqrt(values[0] * values[0] + values[1] * values[1] + values[2] * values[2]);
 
         long currentTime = System.currentTimeMillis();
@@ -2000,7 +2010,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         // 每次新資料到就嘗試偵測步伐
         checkAndDetectStep();
-
 
     }
 
@@ -2237,7 +2246,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
          /* ---------- 清 ready 旗標 ---------- */
          pdrReady = wifiReady = ivpReady = false;
 
-         updateUser(fused_gridx, fused_gridy);
+         updateUser(fused_gridy, fused_gridx);
      }
 
 
