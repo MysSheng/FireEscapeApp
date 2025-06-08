@@ -1,9 +1,6 @@
 package com.app.myapp;
 
-import static java.security.AccessController.getContext;
-
 import android.Manifest;
-import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
@@ -13,34 +10,15 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.BitmapShader;
-import android.graphics.Canvas;
-import android.graphics.ImageFormat;
-import android.graphics.Paint;
-import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.Rect;
-import android.graphics.Shader;
 import android.graphics.SurfaceTexture;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
-import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
-import android.hardware.camera2.CaptureResult;
-import android.hardware.camera2.TotalCaptureResult;
-import android.hardware.camera2.params.Face;
-import android.hardware.camera2.params.StreamConfigurationMap;
-import android.icu.text.Transliterator;
-import android.media.Image;
-import android.media.ImageReader;
-import android.media.MediaPlayer;
-import android.net.Uri;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
 import android.os.Environment;
@@ -60,7 +38,6 @@ import androidx.camera.core.resolutionselector.ResolutionSelector;
 import androidx.camera.core.resolutionselector.ResolutionStrategy;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
-import androidx.constraintlayout.widget.ConstraintLayout;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -75,21 +52,14 @@ import androidx.lifecycle.LifecycleOwner;
 //import android.support.v7.app.AlertDialog;
 //import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.os.Looper;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
 import android.util.SizeF;
-import android.util.SparseIntArray;
-import android.view.Choreographer;
-import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
-import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
-import android.view.OrientationEventListener;
-import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
@@ -103,66 +73,34 @@ import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-
-import android.graphics.Color;
-import android.os.Bundle;
-import android.view.View;
-import android.widget.GridLayout;
 
 import android.graphics.Matrix;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.os.Bundle;
 import android.widget.ImageView;
 
 
-import com.google.android.filament.Engine;
-import com.google.android.filament.Renderer;
-import com.google.android.filament.Scene;
-
 import io.github.sceneview.SceneView;
-import io.github.sceneview.collision.CollisionSystem;
-import io.github.sceneview.gesture.CameraGestureDetector;
-import io.github.sceneview.gesture.GestureDetector;
-import io.github.sceneview.loaders.EnvironmentLoader;
-import io.github.sceneview.loaders.MaterialLoader;
-import io.github.sceneview.loaders.ModelLoader;
-import io.github.sceneview.node.CameraNode;
-import io.github.sceneview.node.CylinderNode;
-import io.github.sceneview.node.LightNode;
-import io.github.sceneview.node.Node;
-
-import io.github.sceneview.SceneView;
-import io.github.sceneview.node.ModelNode;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
-import org.checkerframework.checker.units.qual.A;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -299,7 +237,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float azimuth = 0f; // 方向角
     private float stepCount = 0;
     private float stepLength = 0.7f; // 假設每一步長 70cm
-    private float pdr_x = 3, pdr_y = 5; // (x, y) 初始座標
+    private float pdr_x = 10, pdr_y = 10; // (x, y) 初始座標
     private List<String> collectedData = new ArrayList<>(); // 儲存 WiFi RSSI 和座標資料
     private int scanCount = 0; // 計算 WiFi 掃描次數
 
@@ -420,6 +358,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         joystickView2.setOnMoveListener((dx, dy) -> {
             float adjustFactor = 0.8f; // 控制調整速度
+
             pdr_x += dx * adjustFactor;
             pdr_y += dy * adjustFactor;
             // 限制 x 和 y 在 0~57m 範圍內
@@ -430,16 +369,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             pdrGridX = Math.round((pdr_x / 57f) * 99);
             pdrGridY = Math.round((pdr_y / 57f) * 99);
             pdrReady = true;
+
+            updatePositionFused();
+            // Toast.makeText(MainActivity.this, "dx = " + dx + "dy = " + dy, Toast.LENGTH_SHORT).show();
+
         });
 
         // =============================================================================================
         // =================================== fusion thread setup ==================================================
-        fuseThread = new HandlerThread("FusionThread",
-                android.os.Process.THREAD_PRIORITY_DEFAULT);
-        fuseThread.start();
-        mainH = new Handler(Looper.getMainLooper()); // 也可另開 HandlerThread
-        fuseH = new Handler(fuseThread.getLooper());
-        fuseH.post(fuseTask);
+//        fuseThread = new HandlerThread("FusionThread",
+//                android.os.Process.THREAD_PRIORITY_DEFAULT);
+//        fuseThread.start();
+//        mainH = new Handler(Looper.getMainLooper()); // 也可另開 HandlerThread
+//        fuseH = new Handler(fuseThread.getLooper());
+//        fuseH.post(fuseTask);
 
         SceneView sceneView = findViewById(R.id.sceneView);
         ARViewer.INSTANCE.setupSceneView(this, sceneView, (LifecycleOwner) this);
@@ -1932,6 +1875,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     volatile int wifiGridX = -1, wifiGridY = -1;
     volatile boolean wifiReady = false;
+    volatile float wifiX, wifiY;
+
     private void predict(float[] inputRssi) {
         if (tflite == null) {
             Toast.makeText(this, "Model not loaded", Toast.LENGTH_SHORT).show();
@@ -1944,8 +1889,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         float[][] output = new float[1][2];
         tflite.run(inputRssi, output);
-        float x = output[0][0];
-        float y = output[0][1];
+        wifiX = output[0][0];
+        wifiY = output[0][1];
 
         // runOnUiThread(() -> Toast.makeText(this, "x = " + x + "y = " + y, Toast.LENGTH_SHORT).show());
 
@@ -1953,12 +1898,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 //        wifi_gridx = Math.max(0, Math.min(99, Math.round((x / 57f) * 99)));
 //        wifi_gridy = Math.max(0, Math.min(99, Math.round((y / 57f) * 99)));
 
-        synchronized (lock) {
-            // thread safe version for later fusion
-            wifiGridX = Math.max(0, Math.min(99, Math.round((x / 57f) * 99)));
-            wifiGridY = Math.max(0, Math.min(99, Math.round((y / 57f) * 99)));
-            wifiReady = true;
-        }
+
+        // thread safe version for later fusion
+        wifiGridX = Math.max(0, Math.min(99, Math.round((wifiX / 57f) * 99)));
+        wifiGridY = Math.max(0, Math.min(99, Math.round((wifiY / 57f) * 99)));
+        wifiReady = true;
+
     }
 
     private final BroadcastReceiver wifiScanReceiver = new BroadcastReceiver() {
@@ -2146,13 +2091,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         pdr_x = Math.max(0, Math.min(pdr_x, 57f));
         pdr_y = Math.max(0, Math.min(pdr_y, 57f));
 
-        synchronized (lock) {
-            // thread safe version for later fusion
-            pdrGridX = Math.round((pdr_x / 57f) * 99);
-            pdrGridY = Math.round((pdr_y / 57f) * 99);
-            P += SIGMA_STEP * SIGMA_STEP;
-            pdrReady = true;
-        }
+
+        // thread safe version for later fusion
+        pdrGridX = Math.round((pdr_x / 57f) * 99);
+        pdrGridY = Math.round((pdr_y / 57f) * 99);
+        P += SIGMA_STEP * SIGMA_STEP;
+        pdrReady = true;
+
+        updatePositionFused();
     }
 
 
@@ -2160,6 +2106,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // IVP part-----------------------------------------------------------------------------------------
     volatile int ivpGridX  = -1;
     volatile int ivpGridY  = -1;
+    volatile float ivpX, ivpY;
     volatile boolean ivpReady =  false;     // 毫秒
 
     ScheduledExecutorService ivpScheduler = Executors.newSingleThreadScheduledExecutor();
@@ -2172,13 +2119,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                             if (ex != null) {
                                 Log.e("IVP", "burst failed", ex);
                             } else {
+                                ivpX = pt.x;
+                                ivpY = pt.y;
                                 int gx = Math.round((pt.x / 57f) * 99);
                                 int gy = Math.round((pt.y / 57f) * 99);
-                                synchronized (lock){
-                                    ivpGridX = gx;
-                                    ivpGridY = gy;
-                                    ivpReady = true;
-                                }
+
+                                ivpGridX = gx;
+                                ivpGridY = gy;
+                                ivpReady = true;
+
                                 Log.d("IVP", "RESPONSE → x=" + gx + " y=" + gy);
                             }
                         });
@@ -2223,69 +2172,155 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 
     // fusion part--------------------------------------------------------------------------------------
+    float  P      = 1.0f;          // PDR 方差 (m²)
+    final float SIGMA_STEP = 0.25f;// 每步 1σ ≈ 0.25 m
+    final float MAX_DISTANCE_THRESHOLD = 3.0f; // 最大可接受偏移距離 (m)
+
+    float  sigmaW, sigmaI;
+    float xFused, yFused; // 公尺
+
      private void updatePositionFused() {
          int fused_gridx, fused_gridy;
-         if (wifi_gridx > 0 && wifi_gridy > 0) {
-             fused_gridx =(int) (0.8 * pdr_gridx + 0.2 * wifi_gridx);
-             fused_gridy =(int) (0.8 * pdr_gridy + 0.2 * wifi_gridy);
-         } else {
-             fused_gridx = pdr_gridx;
-             fused_gridy = pdr_gridy;
+
+         if (sigmaW > 2*Math.sqrt(P)) wifiReady = false;
+         if (sigmaI > 2*Math.sqrt(P)) ivpReady = false;
+
+         boolean okP = pdrReady;
+         boolean okW = wifiReady;
+         boolean okI = ivpReady;
+
+
+         // wifi 位置與上一次偏差超過 3m 則不採用
+         if (okW) {
+             float dxW = wifiX - xFused;
+             float dyW = wifiY - yFused;
+             if (Math.hypot(dxW, dyW) > MAX_DISTANCE_THRESHOLD) okW = false;
          }
+         // visual 位置與上一次偏差超過 3m 則不採用
+         if (okI) {
+             float dxI = ivpX - xFused;
+             float dyI = ivpY - yFused;
+             if (Math.hypot(dxI, dyI) > MAX_DISTANCE_THRESHOLD) okI = false;
+         }
+
+         if (!okP && !okW && !okI) {        // 沒東西可融合
+             return;
+         }
+
+         /* ---------- 計算權重 ---------- */
+         float wP = okP ? 1f / P : 0f;
+         float wW = okW ? 1f / (sigmaW * sigmaW) : 0f;
+         float wI = okI ? 1f / (sigmaI * sigmaI) : 0f;
+
+         float sum = wP + wW + wI;
+         wP /= sum;  wW /= sum;  wI /= sum;
+
+         /* ---------- 加權平均 ---------- */
+         xFused = wP * pdr_x + wW * wifiX + wI * ivpX;
+         yFused = wP * pdr_y + wW * wifiY + wI * ivpY;
+
+
+
+         fused_gridx = Math.round((xFused / 57f) * 99);
+         fused_gridy = Math.round((yFused / 57f) * 99);
+
+         // 更新 pdr 位置
+         pdr_x = xFused;
+         pdr_y = yFused;
+
+         /* ---------- 更新 P ---------- */
+         // bayes: P_new = 1 / (1/P + Σ 1/σ²)
+         P = 1f / ( (okP?1f/P:0f) +
+                 (okW?1f/(sigmaW*sigmaW):0f) +
+                 (okI?1f/(sigmaI*sigmaI):0f) );
+
+         /* ---------- 清 ready 旗標 ---------- */
+         pdrReady = wifiReady = ivpReady = false;
 
          updateUser(fused_gridx, fused_gridy);
      }
 
 
-    float  P      = 1.0f;          // PDR 方差 (m²)
-    final float SIGMA_STEP = 0.25f;// 每步 1σ ≈ 0.25 m
-    float  gxP, gyP;               // PDR 座標
-    float  gxW, gyW, sigmaW;       // Wi-Fi
-    float  gxI, gyI, sigmaI;       // Visual
-    final Runnable fuseTask = new Runnable() {
-        @Override public void run() {
-            float xFused, yFused;
-            if (sigmaW > 2*Math.sqrt(P)) wifiReady = false;
-            if (sigmaI > 2*Math.sqrt(P)) ivpReady = false;
 
-            synchronized (lock) {
-                boolean okP = pdrReady;
-                boolean okW = wifiReady;
-                boolean okI = ivpReady;
 
-                if (!okP && !okW && !okI) {        // 沒東西可融合
-                    fuseH.postDelayed(this, 200);  // 200 ms 再試
-                    return;
-                }
 
-                /* ---------- 計算權重 ---------- */
-                float wP = okP ? 1f / P : 0f;
-                float wW = okW ? 1f / (sigmaW * sigmaW) : 0f;
-                float wI = okI ? 1f / (sigmaI * sigmaI) : 0f;
-
-                float sum = wP + wW + wI;
-                wP /= sum;  wW /= sum;  wI /= sum;
-
-                /* ---------- 加權平均 ---------- */
-                xFused = wP*gxP + wW*gxW + wI*gxI;
-                yFused = wP*gyP + wW*gyW + wI*gyI;
-
-                /* ---------- 更新 P ---------- */
-                // bayes: P_new = 1 / (1/P + Σ 1/σ²)
-                P = 1f / ( (okP?1f/P:0f) +
-                        (okW?1f/(sigmaW*sigmaW):0f) +
-                        (okI?1f/(sigmaI*sigmaI):0f) );
-
-                /* ---------- 清 ready 旗標 ---------- */
-                pdrReady = wifiReady = ivpReady = false;
-            }
-
-            /* ------- 上主執行緒改 UI ------- */
-            final int fx = Math.round(xFused);
-            final int fy = Math.round(yFused);
-            mainH.post(() -> updateUser(fx, fy));
-
-            fuseH.postDelayed(this, 200); // 5Hz
-        }
-    };
+//    final Runnable fuseTask = new Runnable() {
+//        @Override public void run() {
+//            if (sigmaW > 2*Math.sqrt(P)) wifiReady = false;
+//            if (sigmaI > 2*Math.sqrt(P)) ivpReady = false;
+//
+//            synchronized (lock) {
+//                boolean okP = pdrReady;
+//                boolean okW = wifiReady;
+//                boolean okI = ivpReady;
+//
+//                gxP = (float) pdrGridX;
+//                gyP = (float) pdrGridY;
+//                gxW = (float) wifiGridX;
+//                gyW = (float) wifiGridY;
+//                gxI = (float) ivpGridX;
+//                gyI = (float) ivpGridY;
+//
+//                // wifi 位置與上一次偏差超過5格則不採用
+//                if (okW) {
+//                    float dxW = gxW - xFused;
+//                    float dyW = gyW - yFused;
+//                    if (Math.hypot(dxW, dyW) > MAX_DISTANCE_THRESHOLD) okW = false;
+//                }
+//                // visual 位置與上一次偏差超過5格則不採用
+//                if (okI) {
+//                    float dxI = gxI - xFused;
+//                    float dyI = gyI - yFused;
+//                    if (Math.hypot(dxI, dyI) > MAX_DISTANCE_THRESHOLD) okI = false;
+//                }
+//
+//                if (!okP && !okW && !okI) {        // 沒東西可融合
+//                    fuseH.postDelayed(this, 200);  // 200 ms 再試
+//                    return;
+//                }
+//
+//                /* ---------- 計算權重 ---------- */
+//                float wP = okP ? 1f / P : 0f;
+//                float wW = okW ? 1f / (sigmaW * sigmaW) : 0f;
+//                float wI = okI ? 1f / (sigmaI * sigmaI) : 0f;
+//
+//                float sum = wP + wW + wI;
+//                wP /= sum;  wW /= sum;  wI /= sum;
+//
+//                /* ---------- 加權平均 ---------- */
+//                xFused = wP*gxP + wW*gxW + wI*gxI;
+//                yFused = wP*gyP + wW*gyW + wI*gyI;
+//
+//                /* ---------- 更新 P ---------- */
+//                // bayes: P_new = 1 / (1/P + Σ 1/σ²)
+//                P = 1f / ( (okP?1f/P:0f) +
+//                        (okW?1f/(sigmaW*sigmaW):0f) +
+//                        (okI?1f/(sigmaI*sigmaI):0f) );
+//
+//                /* ---------- 清 ready 旗標 ---------- */
+//                pdrReady = wifiReady = ivpReady = false;
+//
+////                // 將 fusedX fusedY 換回公尺並且更新 pdr 位置
+////                pdr_x = Math.max(0f, Math.min(57f, (xFused / 99f) * 57f));
+////                pdr_y = Math.max(0f, Math.min(57f, (yFused / 99f) * 57f));
+//            }
+//
+//            /* ------- 上主執行緒改 UI ------- */
+//            final int fx = Math.round(xFused);
+//            final int fy = Math.round(yFused);
+//            mainH.post(() -> updateUser(fx, fy));
+////            mainH.post(() -> {
+////                // 印出三個來源的座標值（格子）
+////                Toast.makeText(MainActivity.this,
+////                        "PDR: (" + gxP + ", " + gyP + ") " +
+////                                "WiFi: (" + gxW + ", " + gyW + ") " +
+////                                "Visual: (" + gxI + ", " + gyI + ")",
+////                        Toast.LENGTH_SHORT).show();
+////
+////            });
+////            mainH.post(() -> updateUser(30, 30));
+//
+//            fuseH.postDelayed(this, 200); // 5Hz
+//        }
+//    };
 }
