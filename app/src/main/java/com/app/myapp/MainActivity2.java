@@ -15,7 +15,7 @@ public class MainActivity2 extends AppCompatActivity {
 
     private Button wifiFingerprintBtn, mainActivityBtn;
 
-    public static final String SERVER_IP = "192.168.11.102";
+    public static final String SERVER_IP = "192.168.11.105";
     public static final int SERVER_PORT = 34567;
 
     @Override

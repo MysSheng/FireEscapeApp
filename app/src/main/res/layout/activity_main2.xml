@@ -12,7 +12,7 @@
         android:layout_width="200dp"
         android:layout_height="wrap_content"
         android:backgroundTint="#3999E6"
-        android:text="室內定位"
+        android:text="逃生路徑規劃"
         android:textColor="#F6ECEC"
         android:textSize="25sp"
         app:layout_constraintBottom_toBottomOf="parent"
