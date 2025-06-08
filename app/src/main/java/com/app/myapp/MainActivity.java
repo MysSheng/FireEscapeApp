@@ -1373,6 +1373,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         gridMapView.setCellRotation(user_y, user_x, 0f);
     }
 
+    private boolean isUsingMirroredModel = false;
+    private float currentModelRotationY = 0f;
 
     @Override
     public void onSensorChanged(SensorEvent event) {
@@ -1393,12 +1395,25 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             float azimuthInDegree = (float) Math.toDegrees(azimuthInRadians);
 
             // 平面圖的基準角度（上方對應的北方偏移角）
-            float baseOffsetAngle = 0f;
+            float baseOffsetAngle = 21f;
+
+            //相對當前格點的基準角度
+            //關於GridMap的可視化
+            Grid[][] escapeMap = fp.user_guide(user_x,user_y);
+            int dir=escapeMap[user_x][user_y].getDirection();
+            if (dir == Grid.UP_RIGHT) baseOffsetAngle += 45f;
+            else if (dir == Grid.RIGHT) baseOffsetAngle += 90f;
+            else if (dir == Grid.DOWN_RIGHT) baseOffsetAngle += 135f;
+            else if (dir == Grid.DOWN) baseOffsetAngle += 180f;
+            else if (dir == Grid.DOWN_LEFT) baseOffsetAngle += 225f;
+            else if (dir == Grid.LEFT) baseOffsetAngle += 270f;
+            else if (dir == Grid.UP_LEFT) baseOffsetAngle += 315f;
+
             // 計算調整後的角度，使其符合平面圖的方向
             float adjustedAzimuth = azimuthInDegree + baseOffsetAngle;
             // 確保角度保持在 0 - 360 之間
             if (adjustedAzimuth >= 360) {
-                adjustedAzimuth -= 360;
+                adjustedAzimuth %= 360;
             } else if (adjustedAzimuth < 0) {
                 adjustedAzimuth += 360;
             }
@@ -1412,10 +1427,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             oppositeRotateAnimation.setDuration(250);
             oppositeRotateAnimation.setFillAfter(true);
 
-            ARViewer.INSTANCE.setModelTransform(0f,-azimuthInDegree,0f);
-            gridMapView.setCellRotation(user_y,user_x,azimuthInDegree);
+            if(adjustedAzimuth>90&&adjustedAzimuth<270) {
+                ARViewer.INSTANCE.loadModel("models/mirrow.glb");
+                ARViewer.INSTANCE.setModelPosition(0f,-0.2f,0f);
+                ARViewer.INSTANCE.setModelTransform(0f,adjustedAzimuth-180f,0f);
+                isUsingMirroredModel=true;
+            }
+            else {
+                ARViewer.INSTANCE.loadModel("models/direction_arrow.glb");
+                ARViewer.INSTANCE.setModelPosition(0f,-0.2f,0f);
+                ARViewer.INSTANCE.setModelTransform(0f,adjustedAzimuth,0f);
+                isUsingMirroredModel=false;
+            }
+            gridMapView.setCellRotation(user_y,user_x,adjustedAzimuth);
 
-            currentDegree = -azimuthInDegree;
+            currentDegree = adjustedAzimuth;
+            currentModelRotationY = 90-adjustedAzimuth;
             lastUpdateTime = System.currentTimeMillis();
         }
 
@@ -1478,8 +1505,41 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 gyroRotation[0] += dx_deg;
                 gyroRotation[1] += dy_deg;
                 gyroRotation[2] += dz_deg;
-                ARViewer.INSTANCE.setModelTransform(0f,ARViewer.INSTANCE.getModelRotationY()+(float) dz_deg,0f);
+                //ARViewer.INSTANCE.setModelTransform(0f,ARViewer.INSTANCE.getModelRotationY()+(float) dz_deg,0f);
                 gridMapView.setCellRotation(user_y,user_x,gridMapView.getCellRotation(user_y,user_x) - (float) dz_deg);
+
+                float rotationDelta = (float) -dz_deg;
+                float temp = currentModelRotationY;
+                currentModelRotationY += rotationDelta;
+
+                boolean needSwitchModel = false;
+
+                // 判斷是否要切換模型
+                if (!isUsingMirroredModel && temp<90f &&currentModelRotationY > 90f) {
+                    isUsingMirroredModel = true;
+                    currentModelRotationY -= 180f;
+                    needSwitchModel = true;
+                }
+                else if (!isUsingMirroredModel && temp>-90f &&currentModelRotationY < -90f) {
+                    isUsingMirroredModel = true;
+                    currentModelRotationY += 180f;
+                    needSwitchModel = true;
+                }
+                else if (isUsingMirroredModel && currentModelRotationY > -90f && currentModelRotationY < 90f) {
+                    isUsingMirroredModel = false;
+                    currentModelRotationY += 180f;
+                    needSwitchModel = true;
+                }
+
+                // 只有真的需要時才換模型
+                if (needSwitchModel) {
+                    String modelPath = isUsingMirroredModel ? "models/mirrow.glb" : "models/direction_arrow.glb";
+                    ARViewer.INSTANCE.loadModel(modelPath);
+                    ARViewer.INSTANCE.setModelPosition(0f, -0.2f, 0f);
+                }
+
+                // 無論是否換模型，更新旋轉
+                ARViewer.INSTANCE.setModelTransform(0f, currentModelRotationY, 0f);
             }
         }
 
