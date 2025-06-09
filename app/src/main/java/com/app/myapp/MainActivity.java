@@ -2243,7 +2243,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // fusion part--------------------------------------------------------------------------------------
     float  P      = 1.0f;          // PDR 方差 (m²)
     final float SIGMA_STEP = 0.25f;// 每步 1σ ≈ 0.25 m
-    final float MAX_DISTANCE_THRESHOLD = 3.0f; // 最大可接受偏移距離 (m)
+    final float MAX_DISTANCE_THRESHOLD = 5.0f; // 最大可接受偏移距離 (m)
 
     float  sigmaW, sigmaI;
     float xFused, yFused; // 公尺
