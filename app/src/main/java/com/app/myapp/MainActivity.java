@@ -186,8 +186,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private final int rowCount = 100;
     private final int columnCount = 100;
     private ImageView[][] cellMap = new ImageView[rowCount][columnCount]; // 儲存 TextView 參照
-    private int user_x = 52;
-    private int user_y = 60;
+    //private int user_x = 52;
+    //private int user_y = 60;
+    private int user_x=85;
+    private int user_y=85;
     private float scaleFactor = 1.0f;
     private int imgWidth, imgHeight; // 儲存圖片的原始大小
     // 初步建構一個大室內空間
@@ -637,7 +639,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             showPath(escapeMap);
             // 強制刷新
             //recalibrateMagneticNorth();
-            updateUiRotation();
+            //updateUiRotation();
+            //currentModelRotationY=90f;
 
 
             gridMapView.setCellRotation(user_y, user_x, currentDegree);
@@ -1382,11 +1385,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     /**
      * 根據當前最新的感測器數據和使用者位置，計算並更新UI元件的旋轉角度。
      */
-    private void updateUiRotation() {
+    /*private void updateUiRotation() {
+
         // 確保我們已經取得了加速度計和磁力計的數據
-        if (!isLastMagnetometerArrayCopied || !isLastAccelerometerArrayCopied) {
-            return; // 如果還沒有數據，就直接返回
-        }
+//        if (!isLastMagnetometerArrayCopied || !isLastAccelerometerArrayCopied) {
+//            return; // 如果還沒有數據，就直接返回
+//        }
 
         // 這裡保留原本的時間間隔判斷，避免過於頻繁的更新
         if (System.currentTimeMillis() - lastUpdateTime > 16f) {
@@ -1399,16 +1403,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             // 平面圖的基準角度（上方對應的北方偏移角）
             float baseOffsetAngle = 21f;
 
-            // 相對當前格點的基準角度
-            Grid[][] escapeMap = fp.user_guide(user_x, user_y);
-            int dir = escapeMap[user_x][user_y].getDirection();
-            if (dir == Grid.UP_RIGHT) baseOffsetAngle += 45f;
-            else if (dir == Grid.RIGHT) baseOffsetAngle += 90f;
-            else if (dir == Grid.DOWN_RIGHT) baseOffsetAngle += 135f;
-            else if (dir == Grid.DOWN) baseOffsetAngle += 180f;
-            else if (dir == Grid.DOWN_LEFT) baseOffsetAngle += 225f;
-            else if (dir == Grid.LEFT) baseOffsetAngle += 270f;
-            else if (dir == Grid.UP_LEFT) baseOffsetAngle += 315f;
+//            // 相對當前格點的基準角度
+//            Grid[][] escapeMap = fp.user_guide(user_x, user_y);
+//            int dir = escapeMap[user_x][user_y].getDirection();
+//            if (dir == Grid.UP_RIGHT) baseOffsetAngle += 45f;
+//            else if (dir == Grid.RIGHT) baseOffsetAngle += 90f;
+//            else if (dir == Grid.DOWN_RIGHT) baseOffsetAngle += 135f;
+//            else if (dir == Grid.DOWN) baseOffsetAngle += 180f;
+//            else if (dir == Grid.DOWN_LEFT) baseOffsetAngle += 225f;
+//            else if (dir == Grid.LEFT) baseOffsetAngle += 270f;
+//            else if (dir == Grid.UP_LEFT) baseOffsetAngle += 315f;
 
             // 計算調整後的角度
             float adjustedAzimuth = azimuthInDegree + baseOffsetAngle;
@@ -1445,7 +1449,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             currentModelRotationY = 90 - adjustedAzimuth;
             lastUpdateTime = System.currentTimeMillis();
         }
-    }
+    }*/
 
     private boolean isUsingMirroredModel = false;
     private float currentModelRotationY = 0f;
@@ -1471,23 +1475,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             // 平面圖的基準角度（上方對應的北方偏移角）
             float baseOffsetAngle = 21f;
 
-            //相對當前格點的基準角度
-            //關於GridMap的可視化
-            Grid[][] escapeMap = fp.user_guide(user_x,user_y);
-            int dir=escapeMap[user_x][user_y].getDirection();
-            if (dir == Grid.UP_RIGHT) baseOffsetAngle += 45f;
-            else if (dir == Grid.RIGHT) baseOffsetAngle += 90f;
-            else if (dir == Grid.DOWN_RIGHT) baseOffsetAngle += 135f;
-            else if (dir == Grid.DOWN) baseOffsetAngle += 180f;
-            else if (dir == Grid.DOWN_LEFT) baseOffsetAngle += 225f;
-            else if (dir == Grid.LEFT) baseOffsetAngle += 270f;
-            else if (dir == Grid.UP_LEFT) baseOffsetAngle += 315f;
-
             // 計算調整後的角度，使其符合平面圖的方向
             float adjustedAzimuth = azimuthInDegree + baseOffsetAngle;
             // 確保角度保持在 0 - 360 之間
             if (adjustedAzimuth >= 360) {
-                adjustedAzimuth %= 360;
+                adjustedAzimuth -= 360;
             } else if (adjustedAzimuth < 0) {
                 adjustedAzimuth += 360;
             }
@@ -1501,22 +1493,42 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             oppositeRotateAnimation.setDuration(250);
             oppositeRotateAnimation.setFillAfter(true);
 
-            if(adjustedAzimuth>90&&adjustedAzimuth<270) {
+            Grid[][] escapeMap = fp.user_guide(user_x,user_y);
+            int dir=escapeMap[user_x][user_y].getDirection();
+            float arrowAngle=0f;
+            if (dir == Grid.UP_RIGHT) arrowAngle = 45f;
+            else if (dir == Grid.RIGHT) arrowAngle = 90f;
+            else if (dir == Grid.DOWN_RIGHT) arrowAngle = 135f;
+            else if (dir == Grid.DOWN) arrowAngle = 180f;
+            else if (dir == Grid.DOWN_LEFT) arrowAngle = 225f;
+            else if (dir == Grid.LEFT) arrowAngle = 270f;
+            else if (dir == Grid.UP_LEFT) arrowAngle = 315f;
+            gridMapView.setCellRotation(user_y,user_x,adjustedAzimuth);
+
+            arrowAngle=arrowAngle-adjustedAzimuth;
+            if(arrowAngle<0) arrowAngle+=360f;
+            else if(arrowAngle>360f) arrowAngle-=-360f;
+
+            if(arrowAngle>180f&&arrowAngle<360f) {
+                //Log.d("yaju","相反"+String.valueOf(arrowAngle));
                 ARViewer.INSTANCE.loadModel("models/mirrow.glb");
                 ARViewer.INSTANCE.setModelPosition(0f,-0.2f,0f);
-                ARViewer.INSTANCE.setModelTransform(0f,adjustedAzimuth-180f,0f);
+
+                ARViewer.INSTANCE.setModelTransform(0f,-arrowAngle+270,0f);
+                currentModelRotationY = -arrowAngle+270;
                 isUsingMirroredModel=true;
             }
             else {
+                //Log.d("yaju","正長"+String.valueOf(arrowAngle));
                 ARViewer.INSTANCE.loadModel("models/direction_arrow.glb");
                 ARViewer.INSTANCE.setModelPosition(0f,-0.2f,0f);
-                ARViewer.INSTANCE.setModelTransform(0f,adjustedAzimuth,0f);
+                ARViewer.INSTANCE.setModelTransform(0f,-arrowAngle+90,0f);
+                currentModelRotationY =-arrowAngle+90;
                 isUsingMirroredModel=false;
             }
-            gridMapView.setCellRotation(user_y,user_x,adjustedAzimuth);
 
             currentDegree = adjustedAzimuth;
-            currentModelRotationY = 90-adjustedAzimuth;
+            //currentModelRotationY = arrowAngle;
             lastUpdateTime = System.currentTimeMillis();
         }
 
@@ -1579,41 +1591,75 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 gyroRotation[0] += dx_deg;
                 gyroRotation[1] += dy_deg;
                 gyroRotation[2] += dz_deg;
+
+
                 //ARViewer.INSTANCE.setModelTransform(0f,ARViewer.INSTANCE.getModelRotationY()+(float) dz_deg,0f);
                 gridMapView.setCellRotation(user_y,user_x,gridMapView.getCellRotation(user_y,user_x) - (float) dz_deg);
+                currentDegree=gridMapView.getCellRotation(user_y,user_x);
+
+
+                Grid[][] escapeMap = fp.user_guide(user_x,user_y);
+                int dir=escapeMap[user_x][user_y].getDirection();
+                float arrowAngle=0f;
+                if (dir == Grid.UP_RIGHT) arrowAngle = 45f;
+                else if (dir == Grid.RIGHT) arrowAngle = 90f;
+                else if (dir == Grid.DOWN_RIGHT) arrowAngle = 135f;
+                else if (dir == Grid.DOWN) arrowAngle = 180f;
+                else if (dir == Grid.DOWN_LEFT) arrowAngle = 225f;
+                else if (dir == Grid.LEFT) arrowAngle = 270f;
+                else if (dir == Grid.UP_LEFT) arrowAngle = 315f;
 
                 float rotationDelta = (float) -dz_deg;
                 float temp = currentModelRotationY;
-                currentModelRotationY += rotationDelta;
+                //float temp = gridMapView.getCellRotation(user_y,user_x);
 
+                //currentModelRotationY += rotationDelta;
+                arrowAngle = arrowAngle - gridMapView.getCellRotation(user_y,user_x);
+                if(arrowAngle>360f){
+                    arrowAngle-=360f;
+                }else {
+                    arrowAngle+=360f;
+                }
+                //currentModelRotationY = arrowAngle-gridMapView.getCellRotation(user_y,user_x);
                 boolean needSwitchModel = false;
 
+                //Log.d("yaju","temp: "+temp+"arrowAngle: "+arrowAngle+"mirrow: "+isUsingMirroredModel);
                 // 判斷是否要切換模型
-                if (!isUsingMirroredModel && temp<90f &&currentModelRotationY > 90f) {
-                    isUsingMirroredModel = true;
-                    currentModelRotationY -= 180f;
-                    needSwitchModel = true;
-                }
-                else if (!isUsingMirroredModel && temp>-90f &&currentModelRotationY < -90f) {
-                    isUsingMirroredModel = true;
-                    currentModelRotationY += 180f;
-                    needSwitchModel = true;
-                }
-                else if (isUsingMirroredModel && currentModelRotationY > -90f && currentModelRotationY < 90f) {
-                    isUsingMirroredModel = false;
-                    currentModelRotationY += 180f;
-                    needSwitchModel = true;
-                }
-
-                // 只有真的需要時才換模型
-                if (needSwitchModel) {
-                    String modelPath = isUsingMirroredModel ? "models/mirrow.glb" : "models/direction_arrow.glb";
-                    ARViewer.INSTANCE.loadModel(modelPath);
-                    ARViewer.INSTANCE.setModelPosition(0f, -0.2f, 0f);
-                }
-
+//                if (!isUsingMirroredModel && temp<90f &&arrowAngle > 180f) {
+//                    isUsingMirroredModel = true;
+//                    currentModelRotationY = -270f + arrowAngle;
+//                    //Log.d("yaju","鏡像模型的角度:  "+String.valueOf(currentModelRotationY));
+//                    Log.d("yaju","hello1");
+//                    needSwitchModel = true;
+//                }
+//                else if (!isUsingMirroredModel && temp>-90f && arrowAngle < 180f) {
+//                    isUsingMirroredModel = true;
+//                    currentModelRotationY = 90f - arrowAngle;
+//                    //Log.d("yaju","鏡像模型的角度:  "+String.valueOf(currentModelRotationY));
+//                    Log.d("yaju","hello2");
+//                    needSwitchModel = true;
+//                }
+//                else if (isUsingMirroredModel && (arrowAngle > 0f && arrowAngle < 180f)){
+//                    isUsingMirroredModel = false;
+//                    currentModelRotationY += -90f + arrowAngle;
+//                    Log.d("yaju","hello3");
+//                    needSwitchModel = true;
+//                } else{
+//                    currentModelRotationY -= (float) dz_deg;
+//                }
+//
+//                // 只有真的需要時才換模型
+//                if (needSwitchModel) {
+//                    String modelPath = isUsingMirroredModel ? "models/mirrow.glb" : "models/direction_arrow.glb";
+//                    Log.d("yaju","當前模型:  "+modelPath);
+//                    ARViewer.INSTANCE.loadModel(modelPath);
+//                    ARViewer.INSTANCE.setModelPosition(0f, -0.2f, 0f);
+//                }
+                //Log.d("yaju","當前user:  x:"+String.valueOf(user_x)+" y:"+String.valueOf(user_y));
+                //Log.d("yaju","當前角度:  "+currentModelRotationY);
                 // 無論是否換模型，更新旋轉
-                ARViewer.INSTANCE.setModelTransform(0f, currentModelRotationY, 0f);
+                ARViewer.INSTANCE.setModelTransform(0f, currentModelRotationY- (float) dz_deg, 0f);
+                currentModelRotationY-=(float) dz_deg;
             }
         }
 
