@@ -229,7 +229,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // ========================== PDR 定位 ======================================================================
 
     private SensorManager sensorManagerPDR;
-    private Sensor accelerometer, magnetometer, gyroscopePDR;
+    private Sensor accelerometer, magnetometer, gyroscopePDR ,rotationSensor;
     private TextView positionTextView, stepInfoTextView, scanCountTextView;
     private Button startScanningBtn, stopScanningBtn, sendToServerBtn, saveCsvBtn;
 
@@ -350,6 +350,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         accelerometer = sensorManagerPDR.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         magnetometer = sensorManagerPDR.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         gyroscopePDR = sensorManagerPDR.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+
+        // 初始化by MysSheng
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);//旋轉
 
         // 開啟偵測器
         registerSensors();
@@ -1335,6 +1339,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
        sensorManager.registerListener(this,accelerometerSensor,SensorManager.SENSOR_DELAY_NORMAL);
        sensorManager.registerListener(this,magnetometerSensor,SensorManager.SENSOR_DELAY_NORMAL);
 
+        sensorManager.registerListener(this, sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR), SensorManager.SENSOR_DELAY_GAME);
+
     }
 
     @Override
@@ -1438,7 +1444,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         //旋轉偵測
         long currentTime = System.currentTimeMillis();
-        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+        /*if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
             if (isCalibrating) {
                 // 初始化開始時間
                 if (calibrationStartTime == 0) {
@@ -1571,6 +1577,63 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     ARViewer.INSTANCE.setModelTransform(0f,-arrowAngle+90,0f);
                     currentModelRotationY = -arrowAngle+90;
                 }
+            }
+        }*/
+
+        if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+            float[] rotationMatrixFromVector = new float[9];
+            float[] orientationFromVector = new float[3];
+
+            // 取得旋轉矩陣
+            SensorManager.getRotationMatrixFromVector(rotationMatrixFromVector, event.values);
+            SensorManager.getOrientation(rotationMatrixFromVector, orientationFromVector);
+
+            float rotationYaw = (float) Math.toDegrees(orientationFromVector[0]); // Z 軸（Yaw）
+
+            // 你的地磁方向補正邏輯（保持原本的）
+            float adjustedRotationYaw = rotationYaw ;
+            if (adjustedRotationYaw >= 360) adjustedRotationYaw -= 360;
+            else if (adjustedRotationYaw < 0) adjustedRotationYaw += 360;
+
+            // 更新平面圖旋轉（cellRotation）
+            gridMapView.setCellRotation(user_y, user_x, adjustedRotationYaw);
+            currentDegree = adjustedRotationYaw;
+
+            // arrow 指向處理（與原本邏輯相同）
+            Grid[][] escapeMap = fp.user_guide(user_x, user_y);
+            int dir = escapeMap[user_x][user_y].getDirection();
+            float arrowAngle = 0f;
+            if (dir == Grid.UP_RIGHT) arrowAngle = 45f;
+            else if (dir == Grid.RIGHT) arrowAngle = 90f;
+            else if (dir == Grid.DOWN_RIGHT) arrowAngle = 135f;
+            else if (dir == Grid.DOWN) arrowAngle = 180f;
+            else if (dir == Grid.DOWN_LEFT) arrowAngle = 225f;
+            else if (dir == Grid.LEFT) arrowAngle = 270f;
+            else if (dir == Grid.UP_LEFT) arrowAngle = 315f;
+
+            arrowAngle = arrowAngle - adjustedRotationYaw;
+            if (arrowAngle < 0) arrowAngle += 360f;
+            else if (arrowAngle > 360f) arrowAngle -= 360f;
+
+//            if (arrowAngle > 180f && arrowAngle < 360f) {
+//                ARViewer.INSTANCE.loadModel("models/mirrow.glb");
+//                ARViewer.INSTANCE.setModelPosition(0f, -0.2f, 0f);
+//                ARViewer.INSTANCE.setModelTransform(0f, -arrowAngle + 270, 0f);
+//                currentModelRotationY = -arrowAngle + 270;
+//                isUsingMirroredModel = true;
+//            } else {
+//                ARViewer.INSTANCE.loadModel("models/direction_arrow.glb");
+//                ARViewer.INSTANCE.setModelPosition(0f, -0.2f, 0f);
+//                ARViewer.INSTANCE.setModelTransform(0f, -arrowAngle + 90, 0f);
+//                currentModelRotationY = -arrowAngle + 90;
+//                isUsingMirroredModel = false;
+//            }
+            if(isUsingMirroredModel){
+                ARViewer.INSTANCE.setModelTransform(0f,-arrowAngle+270,0f);
+                currentModelRotationY = -arrowAngle+270;
+            }else{
+                ARViewer.INSTANCE.setModelTransform(0f,-arrowAngle+90,0f);
+                currentModelRotationY = -arrowAngle+90;
             }
         }
 
