@@ -2203,7 +2203,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             } catch (Throwable t) {
                 Log.e("IVP", "sync exception in scheduled task", t);
             }
-        }, 0, 1, TimeUnit.SECONDS);
+        }, 0, 3, TimeUnit.SECONDS);
     }
 
     public void onRequestPermissionsResult(int requestCode,
@@ -2258,7 +2258,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
          boolean okW = wifiReady;
          boolean okI = ivpReady;
 
-
          // wifi 位置與上一次偏差超過 3m 則不採用
          if (okW) {
              float dxW = wifiX - xFused;
@@ -2308,10 +2307,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
          updateUser(fused_gridy, fused_gridx);
      }
-
-
-
-
 
 //    final Runnable fuseTask = new Runnable() {
 //        @Override public void run() {
