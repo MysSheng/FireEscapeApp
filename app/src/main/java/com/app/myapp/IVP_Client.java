@@ -309,7 +309,7 @@ class DefaultCallback implements CaptureCallback {
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     private void sendDataToServer(final String jsonData) {
         new Thread(() -> {
-            String SERVER_IP = "10.180.202.32";
+            String SERVER_IP = MainActivity2.SERVER_IP;
             int SERVER_PORT = 34567;
             try (Socket socket = new Socket()) {
                 // optional: set a timeout so we don’t block forever
