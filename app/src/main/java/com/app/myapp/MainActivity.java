@@ -237,6 +237,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float azimuth = 0f; // 方向角
     private float stepCount = 0;
     private float stepLength = 0.7f; // 假設每一步長 70cm
+    //private float pdr_x = 38, pdr_y = 30; // (x, y) 初始座標
     //private float pdr_x = 10, pdr_y = 10; // (x, y) 初始座標
     private float pdr_y=29.64f, pdr_x=34.2f;
     private List<String> collectedData = new ArrayList<>(); // 儲存 WiFi RSSI 和座標資料
@@ -2235,7 +2236,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             } catch (Throwable t) {
                 Log.e("IVP", "sync exception in scheduled task", t);
             }
-        }, 0, 1, TimeUnit.SECONDS);
+        }, 0, 3, TimeUnit.SECONDS);
     }
 
     public void onRequestPermissionsResult(int requestCode,
@@ -2275,7 +2276,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // fusion part--------------------------------------------------------------------------------------
     float  P      = 1.0f;          // PDR 方差 (m²)
     final float SIGMA_STEP = 0.25f;// 每步 1σ ≈ 0.25 m
-    final float MAX_DISTANCE_THRESHOLD = 3.0f; // 最大可接受偏移距離 (m)
+    final float MAX_DISTANCE_THRESHOLD = 5.0f; // 最大可接受偏移距離 (m)
 
     float  sigmaW, sigmaI;
     float xFused, yFused; // 公尺
@@ -2289,7 +2290,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
          boolean okP = pdrReady;
          boolean okW = wifiReady;
          boolean okI = ivpReady;
-
 
          // wifi 位置與上一次偏差超過 3m 則不採用
          if (okW) {
@@ -2340,10 +2340,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
          updateUser(fused_gridy, fused_gridx);
      }
-
-
-
-
 
 //    final Runnable fuseTask = new Runnable() {
 //        @Override public void run() {
