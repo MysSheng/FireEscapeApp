@@ -237,7 +237,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float azimuth = 0f; // 方向角
     private float stepCount = 0;
     private float stepLength = 0.7f; // 假設每一步長 70cm
-    private float pdr_x = 10, pdr_y = 10; // (x, y) 初始座標
+    //private float pdr_x = 10, pdr_y = 10; // (x, y) 初始座標
+    private float pdr_y=29.64f, pdr_x=34.2f;
     private List<String> collectedData = new ArrayList<>(); // 儲存 WiFi RSSI 和座標資料
     private int scanCount = 0; // 計算 WiFi 掃描次數
 
@@ -1360,98 +1361,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private boolean isInitialOrientationSet = false;
     private float initialAzimuth = 0;
 
-
-    // 呼叫此方法以重新定位地磁方向（例如在切換場景後）
-    public void recalibrateMagneticNorth() {
-        isLastAccelerometerArrayCopied = false;
-        isLastMagnetometerArrayCopied = false;
-        lastUpdateTime = 0;
-        //currentDegree = 0f;
-
-        // 清空 rotationMatrix 和 orientation（可選）
-        rotationMatrix = new float[9];
-        orientation = new float[3];
-
-        // 若使用 AR 模型，也一併重置
-        //ARViewer.INSTANCE.setModelTransform(0f, 0f, 0f);
-
-        // 若你的 gridMapView 也需要 reset
-        GridMapView gridMapView = findViewById(R.id.gridMapView);
-        //gridMapView.setCellRotation(user_y, user_x, 0f);
-    }
-
-    /**
-     * 根據當前最新的感測器數據和使用者位置，計算並更新UI元件的旋轉角度。
-     */
-    /*private void updateUiRotation() {
-
-        // 確保我們已經取得了加速度計和磁力計的數據
-//        if (!isLastMagnetometerArrayCopied || !isLastAccelerometerArrayCopied) {
-//            return; // 如果還沒有數據，就直接返回
-//        }
-
-        // 這裡保留原本的時間間隔判斷，避免過於頻繁的更新
-        if (System.currentTimeMillis() - lastUpdateTime > 16f) {
-            SensorManager.getRotationMatrix(rotationMatrix, null, lastAccelerometer, lastMagnetometer);
-            SensorManager.getOrientation(rotationMatrix, orientation);
-
-            float azimuthInRadians = orientation[0];
-            float azimuthInDegree = (float) Math.toDegrees(azimuthInRadians);
-
-            // 平面圖的基準角度（上方對應的北方偏移角）
-            float baseOffsetAngle = 21f;
-
-//            // 相對當前格點的基準角度
-//            Grid[][] escapeMap = fp.user_guide(user_x, user_y);
-//            int dir = escapeMap[user_x][user_y].getDirection();
-//            if (dir == Grid.UP_RIGHT) baseOffsetAngle += 45f;
-//            else if (dir == Grid.RIGHT) baseOffsetAngle += 90f;
-//            else if (dir == Grid.DOWN_RIGHT) baseOffsetAngle += 135f;
-//            else if (dir == Grid.DOWN) baseOffsetAngle += 180f;
-//            else if (dir == Grid.DOWN_LEFT) baseOffsetAngle += 225f;
-//            else if (dir == Grid.LEFT) baseOffsetAngle += 270f;
-//            else if (dir == Grid.UP_LEFT) baseOffsetAngle += 315f;
-
-            // 計算調整後的角度
-            float adjustedAzimuth = azimuthInDegree + baseOffsetAngle;
-            if (adjustedAzimuth >= 360) {
-                adjustedAzimuth %= 360;
-            } else if (adjustedAzimuth < 0) {
-                adjustedAzimuth += 360;
-            }
-
-            // ... (原本所有 RotateAnimation, ARViewer, gridMapView.setCellRotation 的程式碼都放在這裡) ...
-            GridMapView gridMapView = findViewById(R.id.gridMapView);
-
-            RotateAnimation rotateAnimation =
-                    new RotateAnimation(currentDegree, -azimuthInDegree, Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
-            rotateAnimation.setDuration(250);
-            rotateAnimation.setFillAfter(true);
-
-            // ... (其他動畫相關程式碼)
-
-            if(adjustedAzimuth > 90 && adjustedAzimuth < 270) {
-                ARViewer.INSTANCE.loadModel("models/mirrow.glb");
-                ARViewer.INSTANCE.setModelPosition(0f, -0.2f, 0f);
-                ARViewer.INSTANCE.setModelTransform(0f, adjustedAzimuth - 180f, 0f);
-                isUsingMirroredModel = true;
-            } else {
-                ARViewer.INSTANCE.loadModel("models/direction_arrow.glb");
-                ARViewer.INSTANCE.setModelPosition(0f, -0.2f, 0f);
-                ARViewer.INSTANCE.setModelTransform(0f, adjustedAzimuth, 0f);
-                isUsingMirroredModel = false;
-            }
-            gridMapView.setCellRotation(user_y, user_x, adjustedAzimuth);
-
-            currentDegree = adjustedAzimuth;
-            currentModelRotationY = 90 - adjustedAzimuth;
-            lastUpdateTime = System.currentTimeMillis();
-        }
-    }*/
-
     private boolean isUsingMirroredModel = false;
     private float currentModelRotationY = 0f;
-
     private static final float COMPLEMENTARY_FILTER_ALPHA = 0.98f; // 陀螺儀權重
     private long lastCorrectionTime = 0;
     private float[] yaju_gravity = new float[3];
@@ -1486,15 +1397,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             } else if (adjustedAzimuth < 0) {
                 adjustedAzimuth += 360;
             }
-            RotateAnimation rotateAnimation =
-                    new RotateAnimation(currentDegree,-azimuthInDegree,Animation.RELATIVE_TO_SELF,0.5f,Animation.RELATIVE_TO_SELF,0.5f);
-            rotateAnimation.setDuration(250);
-            rotateAnimation.setFillAfter(true);
-
-            RotateAnimation oppositeRotateAnimation =
-                    new RotateAnimation(-currentDegree, azimuthInDegree,Animation.RELATIVE_TO_SELF, 0.5f,Animation.RELATIVE_TO_SELF, 0.5f);
-            oppositeRotateAnimation.setDuration(250);
-            oppositeRotateAnimation.setFillAfter(true);
 
             Grid[][] escapeMap = fp.user_guide(user_x,user_y);
             int dir=escapeMap[user_x][user_y].getDirection();
@@ -1626,7 +1528,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 //currentModelRotationY = arrowAngle-gridMapView.getCellRotation(user_y,user_x);
                 boolean needSwitchModel = false;
 
-                //Log.d("yaju","temp: "+temp+"arrowAngle: "+arrowAngle+"mirrow: "+isUsingMirroredModel);
+                Log.d("yaju","temp: "+temp+"arrowAngle: "+arrowAngle+"mirrow: "+isUsingMirroredModel+" dir: "+dir);
                 // 判斷是否要切換模型
 //                if (!isUsingMirroredModel && temp<90f &&arrowAngle > 180f) {
 //                    isUsingMirroredModel = true;
@@ -1661,8 +1563,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 //Log.d("yaju","當前user:  x:"+String.valueOf(user_x)+" y:"+String.valueOf(user_y));
                 //Log.d("yaju","當前角度:  "+currentModelRotationY);
                 // 無論是否換模型，更新旋轉
-                ARViewer.INSTANCE.setModelTransform(0f, currentModelRotationY- (float) dz_deg, 0f);
-                currentModelRotationY-=(float) dz_deg;
+//                ARViewer.INSTANCE.setModelTransform(0f, currentModelRotationY- (float) dz_deg, 0f);
+//                currentModelRotationY-=(float) dz_deg;
+                if(isUsingMirroredModel){
+                    ARViewer.INSTANCE.setModelTransform(0f,-arrowAngle+270,0f);
+                    currentModelRotationY = -arrowAngle+270;
+                }else{
+                    ARViewer.INSTANCE.setModelTransform(0f,-arrowAngle+90,0f);
+                    currentModelRotationY = -arrowAngle+90;
+                }
             }
         }
 
