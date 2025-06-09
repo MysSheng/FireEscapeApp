@@ -186,10 +186,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private final int rowCount = 100;
     private final int columnCount = 100;
     private ImageView[][] cellMap = new ImageView[rowCount][columnCount]; // 儲存 TextView 參照
-    //private int user_x = 52;
-    //private int user_y = 60;
-    private int user_x=85;
-    private int user_y=85;
+    private int user_x = 52;
+    private int user_y = 60;
     private float scaleFactor = 1.0f;
     private int imgWidth, imgHeight; // 儲存圖片的原始大小
     // 初步建構一個大室內空間
@@ -1453,6 +1451,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private boolean isUsingMirroredModel = false;
     private float currentModelRotationY = 0f;
+
+    private static final float COMPLEMENTARY_FILTER_ALPHA = 0.98f; // 陀螺儀權重
+    private long lastCorrectionTime = 0;
+    private float[] yaju_gravity = new float[3];
+    private float[] yaju_geomagnetic = new float[3];
 
     @Override
     public void onSensorChanged(SensorEvent event) {
