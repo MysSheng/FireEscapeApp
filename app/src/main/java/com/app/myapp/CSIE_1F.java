@@ -254,14 +254,76 @@ public class CSIE_1F {
         setRoadLine(82, 94, 88, true);   // 東邊垂直通道
         setRoadArea(97, 97, 73, 80);     // 最下層邊界橫向出口（或另一個房間）
         setRoad(68, 73);                 // 左上方起點連接（與東區相連）
+        //額外補正點
+        grid[65][67].setType(Grid.WALL);
+        grid[66][67].setType(Grid.WALL);
+        grid[67][67].setType(Grid.WALL);
+        grid[65][68].setType(Grid.WALL);
+        grid[65][67].setType(Grid.WALL);
+        grid[67][68].setType(Grid.WALL);
+        grid[68][68].setType(Grid.WALL);
+        grid[69][68].setType(Grid.WALL);
+        grid[70][68].setType(Grid.WALL);
+        grid[80][64].setType(Grid.WALL);
+        grid[80][65].setType(Grid.WALL);
+        grid[80][66].setType(Grid.WALL);
+        grid[80][67].setType(Grid.WALL);
+        grid[81][67].setType(Grid.WALL);
+        grid[82][67].setType(Grid.WALL);
+        grid[83][67].setType(Grid.WALL);
+        grid[84][67].setType(Grid.WALL);
+        grid[85][67].setType(Grid.WALL);
+        grid[60][64].setType(Grid.WALL);
+        grid[60][65].setType(Grid.WALL);
+        grid[61][65].setType(Grid.WALL);
+        grid[62][65].setType(Grid.WALL);
+        grid[63][65].setType(Grid.WALL);
+        grid[64][65].setType(Grid.WALL);
+        grid[58][61].setType(Grid.WALL);
+        grid[59][61].setType(Grid.WALL);
+        grid[59][62].setType(Grid.WALL);
+        grid[59][63].setType(Grid.WALL);
+        grid[55][60].setType(Grid.WALL);
+        grid[55][61].setType(Grid.WALL);
+        grid[54][56].setType(Grid.WALL);
+        grid[54][57].setType(Grid.WALL);
+        grid[54][58].setType(Grid.WALL);
+        grid[53][54].setType(Grid.WALL);
+        grid[52][51].setType(Grid.WALL);
+        grid[52][52].setType(Grid.WALL);
+        grid[51][48].setType(Grid.WALL);
+        grid[50][45].setType(Grid.WALL);
+        grid[50][46].setType(Grid.WALL);
+        grid[49][43].setType(Grid.WALL);
+        grid[49][43].setType(Grid.WALL);
+        grid[48][40].setType(Grid.WALL);
+        grid[47][37].setType(Grid.WALL);
+        grid[47][38].setType(Grid.WALL);
+        grid[46][34].setType(Grid.WALL);
+        grid[46][35].setType(Grid.WALL);
+        grid[47][35].setType(Grid.WALL);
+        grid[45][30].setType(Grid.WALL);
+        grid[45][31].setType(Grid.WALL);
+        grid[45][32].setType(Grid.WALL);
+        grid[44][28].setType(Grid.WALL);
+        grid[43][25].setType(Grid.WALL);
+        grid[43][26].setType(Grid.WALL);
+        for(int i=2;i<=11;i++){
+            grid[27][i].setType(Grid.WALL);
+        }
+
         // 設置火點
         grid[24][45].setType(Grid.FIRE);
         // 設置出口
-        grid[28][1].setType(Grid.EXIT);
+        grid[29][1].setType(Grid.EXIT);
         grid[28][68].setType(Grid.EXIT);
-        grid[55][59].setType(Grid.EXIT);
+        grid[55][58].setType(Grid.EXIT);
         grid[58][88].setType(Grid.EXIT);
-        grid[90][66].setType(Grid.EXIT);
+        grid[90][65].setType(Grid.EXIT);
+
+        grid[28][1].setType(Grid.WALL);
+        grid[55][59].setType(Grid.WALL);
+        grid[90][66].setType(Grid.ROAD);
     }
 
     // 輔助方法：設置矩形區域為ROAD
