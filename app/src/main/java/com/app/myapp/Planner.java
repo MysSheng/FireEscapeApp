@@ -54,11 +54,11 @@ public class Planner {
     public void count_global_path(){
         Queue<Grid> exits = new LinkedList<Grid>();
         //collect exits
-        exits.offer(GridMap[28][1]);
+        exits.offer(GridMap[29][1]);
         exits.offer(GridMap[28][68]);
-        exits.offer(GridMap[55][59]);
+        exits.offer(GridMap[55][58]);
         exits.offer(GridMap[58][88]);
-        exits.offer(GridMap[90][66]);
+        exits.offer(GridMap[90][65]);
         //starting compute
         HashMap<Grid,Grid[][]> navigator = new HashMap<>();
         while (!exits.isEmpty()) {

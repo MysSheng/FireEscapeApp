@@ -229,7 +229,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // ========================== PDR 定位 ======================================================================
 
     private SensorManager sensorManagerPDR;
-    private Sensor accelerometer, magnetometer, gyroscopePDR;
+    private Sensor accelerometer, magnetometer, gyroscopePDR ,rotationSensor;
     private TextView positionTextView, stepInfoTextView, scanCountTextView;
     private Button startScanningBtn, stopScanningBtn, sendToServerBtn, saveCsvBtn;
 
@@ -351,6 +351,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         magnetometer = sensorManagerPDR.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         gyroscopePDR = sensorManagerPDR.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
 
+        // 初始化by MysSheng
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);//旋轉
+
         // 開啟偵測器
         registerSensors();
 
@@ -423,19 +427,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 public void run() {
                     //設置user
                     gridMapView.setCellImage(user_y, user_x, BitmapFactory.decodeResource(getResources(), R.drawable.user_point));
-                    gridMapView.setCellScale(user_y, user_x, 3.0f);
+                    gridMapView.setCellScale(user_y, user_x, 4.5f);
                     gridMapView.gridToFront(user_y,user_x,1.5f);
                     //設置exit
-                    gridMapView.setCellImage(1, 28, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
-                    gridMapView.setCellImage(68, 28, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
-                    gridMapView.setCellImage(59, 55, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
-                    gridMapView.setCellImage(88, 58, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
-                    gridMapView.setCellImage(66, 90, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
-                    gridMapView.setCellScale(1, 28, 3.0f);
-                    gridMapView.setCellScale(68, 28, 3.0f);
-                    gridMapView.setCellScale(59, 55, 3.0f);
-                    gridMapView.setCellScale(88, 58, 3.0f);
-                    gridMapView.setCellScale(66, 90, 3.0f);
+//                    gridMapView.setCellImage(1, 28, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
+//                    gridMapView.setCellImage(68, 28, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
+//                    gridMapView.setCellImage(59, 55, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
+//                    gridMapView.setCellImage(88, 58, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
+//                    gridMapView.setCellImage(66, 90, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
+//                    gridMapView.setCellScale(1, 28, 3.0f);
+//                    gridMapView.setCellScale(68, 28, 3.0f);
+//                    gridMapView.setCellScale(59, 55, 3.0f);
+//                    gridMapView.setCellScale(88, 58, 3.0f);
+//                    gridMapView.setCellScale(66, 90, 3.0f);
                     findUser(true);
                     showPath(escapeMap);
                 }
@@ -532,6 +536,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                             now_x += deltaX;
                             now_y += deltaY;
 
+                            Button user_pos = findViewById(R.id.button3);
+                            user_pos.setBackgroundResource(R.drawable.user_pos);
+
                             setMoveOffset(now_scale, now_x, now_y);
                             return true;
                     }
@@ -612,27 +619,27 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             for (Point p : points) {
                 gridMapView.setCellImage(p.y,p.x,null);
                 gridMapView.setCellScale(p.y,p.x,1f);
-                //gridMapView.setCellRotation(p.y,p.x,0);
+                gridMapView.setCellRotation(p.y,p.x,0);
                 gridMapView.gridToFront(p.y,p.x,0);
             }
             clear();
 
             gridMapView.invalidate();
             gridMapView.setCellImage(user_y, user_x, BitmapFactory.decodeResource(getResources(), R.drawable.user_point));
-            gridMapView.setCellScale(user_y, user_x, 3.0f);
+            gridMapView.setCellScale(user_y, user_x, 4.5f);
             gridMapView.gridToFront(user_y,user_x,1.5f);
 
             //設置exit
-            gridMapView.setCellImage(1, 28, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
-            gridMapView.setCellImage(68, 28, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
-            gridMapView.setCellImage(59, 55, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
-            gridMapView.setCellImage(88, 58, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
-            gridMapView.setCellImage(66, 90, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
-            gridMapView.setCellScale(1, 28, 3.0f);
-            gridMapView.setCellScale(68, 28, 3.0f);
-            gridMapView.setCellScale(59, 55, 3.0f);
-            gridMapView.setCellScale(88, 58, 3.0f);
-            gridMapView.setCellScale(66, 90, 3.0f);
+//            gridMapView.setCellImage(1, 28, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
+//            gridMapView.setCellImage(68, 28, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
+//            gridMapView.setCellImage(59, 55, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
+//            gridMapView.setCellImage(88, 58, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
+//            gridMapView.setCellImage(66, 90, BitmapFactory.decodeResource(getResources(), R.drawable.exit_ui));
+//            gridMapView.setCellScale(1, 28, 3.0f);
+//            gridMapView.setCellScale(68, 28, 3.0f);
+//            gridMapView.setCellScale(59, 55, 3.0f);
+//            gridMapView.setCellScale(88, 58, 3.0f);
+//            gridMapView.setCellScale(66, 90, 3.0f);
             findUser(true);
             showPath(escapeMap);
             // 強制刷新
@@ -653,6 +660,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private void findUser(boolean forceRecalculate) {
         GridMapView gridMapView = findViewById(R.id.gridMapView);
+        Button user_pos= findViewById(R.id.button3);
 
         gridMapView.post(() -> {
             // 確保視圖已完成佈局
@@ -668,6 +676,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 now_x = target_offset_x;
                 now_y = target_offset_y;
             }
+            user_pos.setBackgroundResource(R.drawable.user_pos2);
 
             setMoveOffset(now_scale, now_x, now_y);
         });
@@ -684,6 +693,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private void setZoomScale(float scale, Runnable onComplete) {
         ImageView imageView = findViewById(R.id.imageView);
         GridMapView gridMapView = findViewById(R.id.gridMapView);
+
 
         if (isZoomInitialized) {
             applyZoomScale(imageView, gridMapView, scale);
@@ -940,42 +950,49 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_d));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                     if(escapeMap[x-1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_d));
                     }
                 } else if (dir == Grid.DOWN_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_d));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                     if(escapeMap[x+1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_d));
                     }
                 } else if (dir == Grid.DOWN_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.d_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                     if(escapeMap[x+1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_d));
                     }
                 } else if (dir == Grid.LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_d));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                     if(escapeMap[x][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_d));
                     }
                 } else if (dir == Grid.RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.d_r));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                     if(escapeMap[x][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_d));
                     }
                 } else if (dir == Grid.UP_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_d));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                     if(escapeMap[x-1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_d));
                     }
                 } else if (dir == Grid.UP_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.d_ru));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                     if(escapeMap[x-1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_d));
                     }
                 }
@@ -984,42 +1001,49 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_d));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                     if(escapeMap[x+1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_u));
                     }
                 } else if (dir == Grid.UP_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_u));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                     if(escapeMap[x-1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_u));
                     }
                 } else if (dir == Grid.UP_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_ru));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                     if(escapeMap[x-1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_u));
                     }
                 } else if (dir == Grid.LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_u));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                     if(escapeMap[x][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_u));
                     }
                 } else if (dir == Grid.RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_r));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                     if(escapeMap[x][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_u));
                     }
                 } else if (dir == Grid.DOWN_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_u));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                     if(escapeMap[x+1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_u));
                     }
                 } else if (dir == Grid.DOWN_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                     if(escapeMap[x+1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_u));
                     }
                 }
@@ -1028,42 +1052,49 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_r));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                     if(escapeMap[x][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_r));
                     }
                 } else if (dir == Grid.UP_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ru_r));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                     if(escapeMap[x-1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_r));
                     }
                 } else if (dir == Grid.DOWN_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.r_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                     if(escapeMap[x+1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_r));
                     }
                 } else if (dir == Grid.UP) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_r));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                     if(escapeMap[x-1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_r));
                     }
                 } else if (dir == Grid.DOWN) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.d_r));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                     if(escapeMap[x+1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_r));
                     }
                 } else if (dir == Grid.UP_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_r));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                     if(escapeMap[x-1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_r));
                     }
                 } else if (dir == Grid.DOWN_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_r));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                     if(escapeMap[x+1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_r));
                     }
                 }
@@ -1072,42 +1103,49 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_r));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                     if(escapeMap[x][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_l));
                     }
                 } else if (dir == Grid.UP_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_l));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                     if(escapeMap[x-1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_l));
                     }
                 } else if (dir == Grid.DOWN_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_ld));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                     if(escapeMap[x+1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_l));
                     }
                 } else if (dir == Grid.UP) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_u));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                     if(escapeMap[x-1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_l));
                     }
                 } else if (dir == Grid.DOWN) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_d));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                     if(escapeMap[x+1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_l));
                     }
                 } else if (dir == Grid.UP_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_ru));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                     if(escapeMap[x-1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_l));
                     }
                 } else if (dir == Grid.DOWN_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                     if(escapeMap[x+1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_l));
                     }
                 }
@@ -1120,42 +1158,49 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_rd));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                     if(escapeMap[x-1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_rd));
                     }
                 } else if (dir == Grid.UP_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ru_rd));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                     if(escapeMap[x-1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_rd));
                     }
                 } else if (dir == Grid.DOWN) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.d_rd));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                     if(escapeMap[x+1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_rd));
                     }
                 } else if (dir == Grid.RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.r_rd));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                     if(escapeMap[x][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_rd));
                     }
                 } else if (dir == Grid.DOWN_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_rd));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                     if(escapeMap[x+1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_rd));
                     }
                 } else if (dir == Grid.UP) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_rd));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                     if(escapeMap[x-1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_rd));
                     }
                 } else if (dir == Grid.LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_rd));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                     if(escapeMap[x][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_rd));
                     }
                 }
@@ -1168,42 +1213,49 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_ld));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                     if(escapeMap[x-1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ld));
                     }
                 } else if (dir == Grid.UP_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_ru));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                     if(escapeMap[x-1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ld));
                     }
                 } else if (dir == Grid.DOWN) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_d));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                     if(escapeMap[x+1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ld));
                     }
                 } else if (dir == Grid.LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_ld));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                     if(escapeMap[x][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ld));
                     }
                 } else if (dir == Grid.DOWN_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                     if(escapeMap[x+1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ld));
                     }
                 } else if (dir == Grid.UP) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_u));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                     if(escapeMap[x-1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ld));
                     }
                 } else if (dir == Grid.RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_r));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                     if(escapeMap[x][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ld));
                     }
                 }
@@ -1216,42 +1268,49 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ld_ru));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                     if(escapeMap[x+1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ru));
                     }
                 } else if (dir == Grid.DOWN_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ru_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                     if(escapeMap[x+1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ru));
                     }
                 } else if (dir == Grid.UP) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.u_ru));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                     if(escapeMap[x-1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ru));
                     }
                 } else if (dir == Grid.RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.ru_r));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                     if(escapeMap[x][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ru));
                     }
                 } else if (dir == Grid.UP_LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_ru));
                     showPath(x - 1, y - 1, Grid.UP_LEFT, escapeMap);
                     if(escapeMap[x-1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ru));
                     }
                 } else if (dir == Grid.DOWN) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.d_ru));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                     if(escapeMap[x+1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ru));
                     }
                 } else if (dir == Grid.LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.l_ru));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                     if(escapeMap[x][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_ru));
                     }
                 }
@@ -1264,42 +1323,49 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_rd));
                     showPath(x + 1, y - 1, Grid.DOWN_LEFT, escapeMap);
                     if(escapeMap[x+1][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_lu));
                     }
                 } else if (dir == Grid.DOWN_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_rd));
                     showPath(x + 1, y + 1, Grid.DOWN_RIGHT, escapeMap);
                     if(escapeMap[x+1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_lu));
                     }
                 } else if (dir == Grid.UP) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_u));
                     showPath(x - 1, y, Grid.UP, escapeMap);
                     if(escapeMap[x-1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_lu));
                     }
                 } else if (dir == Grid.LEFT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_l));
                     showPath(x, y - 1, Grid.LEFT, escapeMap);
                     if(escapeMap[x][y-1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_lu));
                     }
                 } else if (dir == Grid.UP_RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_ru));
                     showPath(x - 1, y + 1, Grid.UP_RIGHT, escapeMap);
                     if(escapeMap[x-1][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_lu));
                     }
                 } else if (dir == Grid.DOWN) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_d));
                     showPath(x + 1, y, Grid.DOWN, escapeMap);
                     if(escapeMap[x+1][y].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_lu));
                     }
                 } else if (dir == Grid.RIGHT) {
                     gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.lu_r));
                     showPath(x, y + 1, Grid.RIGHT, escapeMap);
                     if(escapeMap[x][y+1].getType()==Grid.EXIT){
+                        gridMapView.gridToFront(y,x,2.0f);
                         gridMapView.setCellImage(y, x, getCachedBitmap(R.drawable.end_lu));
                     }
                 }
@@ -1334,6 +1400,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //測地磁角
        sensorManager.registerListener(this,accelerometerSensor,SensorManager.SENSOR_DELAY_NORMAL);
        sensorManager.registerListener(this,magnetometerSensor,SensorManager.SENSOR_DELAY_NORMAL);
+
+        sensorManager.registerListener(this, sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR), SensorManager.SENSOR_DELAY_GAME);
 
     }
 
@@ -1438,7 +1506,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         //旋轉偵測
         long currentTime = System.currentTimeMillis();
-        if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+        /*if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
             if (isCalibrating) {
                 // 初始化開始時間
                 if (calibrationStartTime == 0) {
@@ -1571,6 +1639,63 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     ARViewer.INSTANCE.setModelTransform(0f,-arrowAngle+90,0f);
                     currentModelRotationY = -arrowAngle+90;
                 }
+            }
+        }*/
+
+        if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+            float[] rotationMatrixFromVector = new float[9];
+            float[] orientationFromVector = new float[3];
+
+            // 取得旋轉矩陣
+            SensorManager.getRotationMatrixFromVector(rotationMatrixFromVector, event.values);
+            SensorManager.getOrientation(rotationMatrixFromVector, orientationFromVector);
+
+            float rotationYaw = (float) Math.toDegrees(orientationFromVector[0]); // Z 軸（Yaw）
+
+            // 你的地磁方向補正邏輯（保持原本的）
+            float adjustedRotationYaw = rotationYaw ;
+            if (adjustedRotationYaw >= 360) adjustedRotationYaw -= 360;
+            else if (adjustedRotationYaw < 0) adjustedRotationYaw += 360;
+
+            // 更新平面圖旋轉（cellRotation）
+            gridMapView.setCellRotation(user_y, user_x, adjustedRotationYaw);
+            currentDegree = adjustedRotationYaw;
+
+            // arrow 指向處理（與原本邏輯相同）
+            Grid[][] escapeMap = fp.user_guide(user_x, user_y);
+            int dir = escapeMap[user_x][user_y].getDirection();
+            float arrowAngle = 0f;
+            if (dir == Grid.UP_RIGHT) arrowAngle = 45f;
+            else if (dir == Grid.RIGHT) arrowAngle = 90f;
+            else if (dir == Grid.DOWN_RIGHT) arrowAngle = 135f;
+            else if (dir == Grid.DOWN) arrowAngle = 180f;
+            else if (dir == Grid.DOWN_LEFT) arrowAngle = 225f;
+            else if (dir == Grid.LEFT) arrowAngle = 270f;
+            else if (dir == Grid.UP_LEFT) arrowAngle = 315f;
+
+            arrowAngle = arrowAngle - adjustedRotationYaw;
+            if (arrowAngle < 0) arrowAngle += 360f;
+            else if (arrowAngle > 360f) arrowAngle -= 360f;
+
+//            if (arrowAngle > 180f && arrowAngle < 360f) {
+//                ARViewer.INSTANCE.loadModel("models/mirrow.glb");
+//                ARViewer.INSTANCE.setModelPosition(0f, -0.2f, 0f);
+//                ARViewer.INSTANCE.setModelTransform(0f, -arrowAngle + 270, 0f);
+//                currentModelRotationY = -arrowAngle + 270;
+//                isUsingMirroredModel = true;
+//            } else {
+//                ARViewer.INSTANCE.loadModel("models/direction_arrow.glb");
+//                ARViewer.INSTANCE.setModelPosition(0f, -0.2f, 0f);
+//                ARViewer.INSTANCE.setModelTransform(0f, -arrowAngle + 90, 0f);
+//                currentModelRotationY = -arrowAngle + 90;
+//                isUsingMirroredModel = false;
+//            }
+            if(isUsingMirroredModel){
+                ARViewer.INSTANCE.setModelTransform(0f,-arrowAngle+270,0f);
+                currentModelRotationY = -arrowAngle+270;
+            }else{
+                ARViewer.INSTANCE.setModelTransform(0f,-arrowAngle+90,0f);
+                currentModelRotationY = -arrowAngle+90;
             }
         }
 
